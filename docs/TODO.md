@@ -9,7 +9,7 @@
 - [x] Timeline builder: compute section durations based on WAV lengths + pause settings (`src/timeline.py`).
 - [x] FFmpeg command template for背景+テロップ+ウォーターマーク (`src/render/ffmpeg_runner.py`)。
 - [x] SRT generator and metadata writer (`src/outputs.py`)。
-- [ ] Batch renderer CLI (`scripts/batch_render.py`) が glob で複数 YAML を処理。
+- [x] Batch renderer CLI (`scripts/batch_render.py`) が glob で複数 YAML を処理。
 - [ ] Mac 向け `Setup.command` / `RunVoicevoxGUI.command` のような環境整備スクリプトを用意し、依存ツール (VOICEVOX, FFmpeg) の導入手順を自動化する。
 - [ ] 台本(YAML)の入力・編集・セクション調整を行える UI 画面を設計・実装し、CLI だけでなくブラウザから台本を編集できるようにする。
 - [ ] 自然文や箇条書きから YAML 台本を AI で自動生成するユーティリティ（CLI or UI）を実装し、手動整備の負荷を減らす。
