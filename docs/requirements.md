@@ -1,20 +1,45 @@
-# Requirements Draft
+# Requirements Draft (v2)
 
-## Goal
-Automatically generate concise explainer videos from structured inputs (Markdown scripts, bullet lists, or API data) by chaining text processing, narration, and visual assembly.
+## 1. Goal & Scope
+- 雑学／ライフハック系の動画を、テーマ入力から完成動画までほぼ自動で生成する。
+- テキスト台本は YAML を基準とし、ランキング形式や CTA など雑学動画特有の構造をテンプレ化する。
+- 将来的には YouTube/Shorts/Vertical など複数フォーマットに対応。
 
-## Functional highlights
-- Input ingestion: accept Markdown, outline JSON, or prompt-based topics.
-- Script enrichment: add hooks for glossary, call-to-action, or references.
-- Narration: select a TTS voice, control pacing, inject pauses.
-- Visuals: auto-generate slides or motion cards with titles, bullet points, and supporting imagery.
-- Assembly: combine narration, background music, and visuals into MP4 output.
-- Export presets: social square, vertical short, widescreen.
+## 2. Content Strategy Requirements
+1. **テーマ選定テンプレ**: ユーザーが「ジャンル」「切り口」「ランキング項目数」を指定し、驚きを与えるネタ（損している習慣 etc.）を提示できるようにする。
+2. **構成テンプレ**:
+   - オープニング: 悩み提示＋メリット予告＋ダイジェスト。
+   - 本編: ランキング形式（5〜7項目）、各項目は「フック→根拠→実演→ブリッジ」で構成。
+   - エンディング: サマリー＋CTA（コメント/登録誘導）。
+3. **スクリプトトーン**: テンション（明るい/淡々）、語尾、キャッチコピーのプリセットを保持し、テーマごとに切り替える。
 
-## Open questions
-1. Which rendering engine to start with (ffmpeg overlays, Remotion, custom canvas)?
-2. Do we need live-preview or is batch rendering sufficient for MVP?
-3. How to manage licensed assets (music/fonts/backgrounds)?
-4. Desired hosting/usage model (local CLI vs. web service).
+## 3. Functional Highlights
+- **Input ingestion**: Markdown / YAML / プロンプトを受け取り、自動でランキング台本を生成。
+- **Script enrichment**:
+  - 科学的根拠や専門家コメントの挿入。
+  - ブリッジ文や CTA を自動生成。
+  - 語尾/口調統一。
+- **Narration**: VOICEVOX キャラクター選択、スピード・ピッチ調整、セクションごとのポーズ。
+- **Visuals**:
+  - 背景: 既存クリップ or 画像；必要に応じて AI 画像生成やフリー素材自動取得。
+  - テロップ: ランキング番号、タイトル、ビフォーアフター文を描画。
+  - サムネイル: 「知らないと損」「保存版」など驚きラベル付きテンプレ。
+- **Assembly**: FFmpeg で背景 + BGM + ナレーション + テロップを統合。SRT/メタ JSON/サムネも同時生成。
+- **Automation**:
+  1. テーマ入力 → AI 台本生成。
+  2. 素材収集 → 背景・アイコンの自動取得。
+  3. 音声生成 → VOICEVOX API。
+  4. 映像合成 → ffmpeg ランキングテンプレ。
+  5. アウトプット → 複数レイアウトで MP4/SRT/サムネ。
 
-Iterate on this document before locking down architecture.
+## 4. Non-functional Considerations
+- **再現性**: 同じテーマと設定で同じ結果が得られるシード管理。
+- **ライセンス管理**: 素材の出典や利用条件をメタ情報に記録。
+- **拡張性**: 音声エンジンや画像生成エンジンの差し替えができる構造。
+- **ユーザーUX**: CLI + Web UI（スクリプト編集画面）で操作可能。
+
+## 5. Open Questions
+1. 自動テーマ選定のアルゴリズム（トレンド API を利用するか）。
+2. AI スクリプト生成時の安全対策・検閲ポリシー。
+3. 素材取得のコスト管理（キャッシュやプリセット活用）。
+4. 将来的なアップロード自動化（YouTube API 連携）が必要か。

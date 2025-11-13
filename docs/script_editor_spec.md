@@ -1,15 +1,16 @@
 # Script Editing UI — Concept
 
 ## Goals
-- Provide a browser-based editor for YAML scripts (sections, voice, styles) with live preview.
-- Allow users to import/export YAML, duplicate sections, adjust narration text, and preview estimated duration.
+- Provide a browserベースの YAML エディタ（ランキング構成・トーン・CTA を含む）。
+- テーマ／ジャンル設定、セクション調整、AI 自動生成のトリガーをひとまとめにする。
 
 ## Features
-1. **Section list sidebar**: reorder, add, remove sections.
-2. **Section form**: fields for `on_screen_text`, `narration`, duration hint.
-3. **Preview pane**: render timeline summary + KPIs.
-4. **YAML diff view**: show generated YAML compared to last saved version.
-5. **Integration hooks**: button to call AI YAML generator (future task).
+1. **Theme & Ranking panel**: ジャンル、切り口、アイテム数、CTA テンプレを入力。ライフハックの驚きワードもここで管理。
+2. **Section list sidebar**: 順位・タイトルを表示し、ドラッグで並べ替え。
+3. **Section form**: `hook / evidence / demo / bridge` といったサブフィールドに分割し、語尾・トーンのプリセットを適用。
+4. **Preview pane**: タイムライン、想定総尺、CTA の確認。ランキングのサマリーカードを表示。
+5. **YAML diff view**: 生成済み YAML と編集中差分を比較。
+6. **AI hooks**: ボタン1つで「自然文→YAML 変換」「ブリッジ文自動生成」「サムネコピー案生成」を呼び出す。
 
 ## Tech stack (proposal)
 - React + Vite (reuse existing stack).
@@ -18,6 +19,6 @@
 - API endpoints: `GET/PUT /scripts/{id}`.
 
 ## Next steps
-- Build wireframes (Figma or markdown sketches).
-- Define API contracts for saving drafts.
-- Implement minimal editor with section list + forms.
+- Build wireframes (Figma or markdown sketches)。特にランキングエディタとプレビューを明確化。
+- Define API contracts (`/scripts`, `/themes`, `/ai/generate-script`).
+- Implement minimal editor with theme panel + section forms + diff view。
