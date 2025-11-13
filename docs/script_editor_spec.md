@@ -1,7 +1,7 @@
 # Script Editing UI — Concept
 
 ## Goals
-- Provide a browserベースの YAML エディタ（ランキング構成・トーン・CTA を含む）。
+- Electron などを用いたウインドウ型アプリとして YAML エディタを提供し、ランキング構成・トーン・CTA を一体化する。
 - テーマ／ジャンル設定、セクション調整、AI 自動生成のトリガーをひとまとめにする。
 
 ## Features
@@ -13,10 +13,10 @@
 6. **AI hooks**: ボタン1つで「自然文→YAML 変換」「ブリッジ文自動生成」「サムネコピー案生成」を呼び出す。
 
 ## Tech stack (proposal)
-- React + Vite (reuse existing stack).
-- State management via TanStack Query or Zustand.
+- Electron + React (既存コンポーネントを流用)。
+- State management via Zustand or Redux Toolkit.
 - Monaco editor for raw YAML edits.
-- API endpoints: `GET/PUT /scripts/{id}`.
+- IPC/ローカル API (`GET/PUT /scripts/{id}` 相当) で CLI モジュールと連携。
 
 ## Next steps
 - Build wireframes (Figma or markdown sketches)。特にランキングエディタとプレビューを明確化。

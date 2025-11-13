@@ -11,7 +11,7 @@
 - [x] SRT generator and metadata writer (`src/outputs.py`)。
 - [x] Batch renderer CLI (`scripts/batch_render.py`) が glob で複数 YAML を処理。
 - [x] Mac 向け `Setup.command` / `RunVoicevoxGUI.command` のような環境整備スクリプトを用意し、依存ツール (VOICEVOX, FFmpeg) の導入手順を自動化する。
-- [ ] 台本(YAML)の入力・編集・セクション調整を行える UI 画面を設計・実装し、CLI だけでなくブラウザから台本を編集できるようにする。
+- [ ] 台本(YAML)の入力・編集・セクション調整を行えるデスクトップ（Electron ベース）UI を設計・実装し、CLI だけでなくウインドウアプリから編集できるようにする。
 - [ ] 自然文や箇条書きから YAML 台本を AI で自動生成するユーティリティ（CLI or UI）を実装し、手動整備の負荷を減らす。
 - [ ] テーマ／ジャンル／ランキング項目数を管理する「企画テンプレート」モジュールを実装し、動画ごとに切り口・ターゲット・CTA を保存できるようにする。
 - [ ] 科学的根拠・ブリッジ文・CTA を差し込む台本テンプレ機能を YAML スキーマ／AI プロンプトに追加し、ライフハック構成（フック→根拠→実演）を自動化する。
