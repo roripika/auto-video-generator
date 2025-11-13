@@ -1,0 +1,14 @@
+# Node / frontend
+node_modules/
+
+# Python
+.venv/
+__pycache__/
+
+# Media outputs
+output/
+*.mp4
+*.wav
+
+# OS artifacts
+.DS_Store
