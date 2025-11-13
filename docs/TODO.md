@@ -10,6 +10,7 @@
 - [ ] FFmpeg command template for背景+テロップ+ウォーターマーク。
 - [ ] SRT generator and metadata writer。
 - [ ] Batch renderer CLI (`scripts/batch_render.py`) が glob で複数 YAML を処理。
+- [ ] Mac 向け `Setup.command` / `RunVoicevoxGUI.command` のような環境整備スクリプトを用意し、依存ツール (VOICEVOX, FFmpeg) の導入手順を自動化する。
 
 ## Low Priority / Future
 - [ ] Ken Burns 風ズームのプリセット作成。
