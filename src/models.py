@@ -109,3 +109,26 @@ class ConfigModel(BaseModel):
     ffmpeg_path: str = "ffmpeg"
     timeout_sec: int = 60
     retries: int = 3
+
+
+class RankingSettings(BaseModel):
+    min_items: int = 5
+    max_items: int = 7
+    default_items: int = 5
+
+
+class CTAConfig(BaseModel):
+    primary: str = "コメントでお気に入りを教えてください！"
+    secondary: Optional[str] = "チャンネル登録と高評価もよろしくお願いします。"
+
+
+class ThemeTemplate(BaseModel):
+    id: str
+    label: str
+    genre: str
+    description: Optional[str] = None
+    hook_phrases: List[str] = []
+    ranking: RankingSettings = RankingSettings()
+    cta: CTAConfig = CTAConfig()
+    script_guidelines: List[str] = []
+    thumbnail_keywords: List[str] = []

@@ -1,0 +1,23 @@
+id: lifehack_surprise
+label: ライフハック驚きランキング
+genre: 日常雑学
+description: 日常の思い込みや損行動を覆す5〜7位のランキング動画向けテンプレート
+hook_phrases:
+  - "え、いつもやってる…？"
+  - "実はそれ損してます"
+  - "知らないと後悔する○○"
+ranking:
+  min_items: 5
+  max_items: 7
+  default_items: 6
+cta:
+  primary: "コメントで一番刺さったハックを教えてください！"
+  secondary: "チャンネル登録＆高評価で次回のハックもお見逃しなく"
+script_guidelines:
+  - "各項目は フック→根拠→実演→ブリッジ の順で記述する"
+  - "根拠にはデータや専門家のコメントを1行でも入れる"
+  - "ブリッジでは次の順位への期待を煽る"
+thumbnail_keywords:
+  - "知らないと損"
+  - "保存版"
+  - "○○するだけ"

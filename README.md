@@ -49,3 +49,4 @@ YAML 台本を `ScriptModel` で読み込み、VOICEVOX API をセクション�
 - `docs/requirements.md`: 雑学動画に必要なコンテンツ要件（ランキング構成、CTA、素材取得フロー）を記載。
 - `docs/script_editor_spec.md`: テーマ／ランキングエディタ UI のコンセプトや AI 連携フロー。
 - `docs/TODO.md`: 実装タスク（AI 台本生成、素材パイプライン、サムネ自動化など）。
+- `configs/themes/`: ランキング向けの企画テンプレート（例: `lifehack_surprise.yaml`）。`src/themes.py` から読み込めます。
