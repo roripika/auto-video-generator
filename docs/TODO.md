@@ -1,12 +1,12 @@
 # Auto Explainer Video Generator — TODO
 
 ## High Priority (Week 1)
-- [ ] Define pydantic models for config/script YAML (`src/models.py`).
-- [ ] Implement VOICEVOX API client with retry + caching (`src/audio/voicevox_client.py`).
-- [ ] Prototype `generate_video.py` that loads YAML and sequentially calls VOICEVOX (音声だけ生成して work/audio に保存）。
+- [x] Define pydantic models for config/script YAML (`src/models.py`).
+- [x] Implement VOICEVOX API client with retry + caching (`src/audio/voicevox_client.py`).
+- [x] Prototype `generate_audio.py` that loads YAML and sequentially calls VOICEVOX (音声だけ生成して work/audio に保存）。
 
 ## Medium Priority
-- [ ] Timeline builder: compute section durations based on WAV lengths + pause settings.
+- [x] Timeline builder: compute section durations based on WAV lengths + pause settings (`src/timeline.py`).
 - [ ] FFmpeg command template for背景+テロップ+ウォーターマーク。
 - [ ] SRT generator and metadata writer。
 - [ ] Batch renderer CLI (`scripts/batch_render.py`) が glob で複数 YAML を処理。
