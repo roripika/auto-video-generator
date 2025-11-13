@@ -66,6 +66,11 @@ class Section(BaseModel):
     on_screen_text: str
     narration: str
     duration_hint_sec: Optional[float] = None
+    hook: Optional[str] = None
+    evidence: Optional[str] = None
+    demo: Optional[str] = None
+    bridge: Optional[str] = None
+    cta: Optional[str] = None
 
 
 class OutputOptions(BaseModel):
