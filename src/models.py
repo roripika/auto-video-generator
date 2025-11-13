@@ -17,10 +17,10 @@ class VideoConfig(BaseModel):
 class VoiceSettings(BaseModel):
     engine: Literal["voicevox"] = "voicevox"
     speaker_id: int
-    speedScale: float = Field(default=1.0, alias="speed_scale")
-    pitchScale: float = Field(default=0.0, alias="pitch_scale")
-    intonationScale: float = Field(default=1.0, alias="intonation_scale")
-    volumeScale: float = Field(default=1.0, alias="volume_scale")
+    speedScale: float = 1.0
+    pitchScale: float = 0.0
+    intonationScale: float = 1.0
+    volumeScale: float = 1.0
     pause_msec: int = 0
 
 

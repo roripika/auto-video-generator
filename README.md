@@ -25,3 +25,16 @@ Feel free to adapt this structure as the project evolves.
 
 - 外部プロジェクト（例: `voicevox-storycaster`）は **参照のみ** とし、分析結果をこのリポジトリへ反映する形で活用します。
 - これら外部リポジトリを直接編集したり PR を送ることは行いません。必要な変更は常に本リポジトリ内で独自実装してください。
+
+## Getting started
+
+### 1. Install dependencies
+```
+pip install pydantic PyYAML requests
+```
+
+### 2. Generate narration WAV files
+```
+python scripts/generate_audio.py --script path/to/script.yaml [--config configs/config.yaml]
+```
+This command loads the YAML script via `ScriptModel`, calls the VOICEVOX API section by section, and saves WAV files under `work/audio/`.
