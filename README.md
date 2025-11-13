@@ -38,3 +38,7 @@ pip install pydantic PyYAML requests
 python scripts/generate_audio.py --script path/to/script.yaml [--config configs/config.yaml]
 ```
 This command loads the YAML script via `ScriptModel`, calls the VOICEVOX API section by section, and saves WAV files under `work/audio/`.
+
+### 3. Convenience scripts (macOS)
+- `Setup.command`: virtualenv 作成・依存インストール・ffmpeg の導入を実行。
+- `RunVoicevoxGUI.command`: インストール済みの VOICEVOX GUI を起動。
