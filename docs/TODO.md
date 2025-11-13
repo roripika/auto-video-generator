@@ -7,7 +7,7 @@
 
 ## Medium Priority
 - [x] Timeline builder: compute section durations based on WAV lengths + pause settings (`src/timeline.py`).
-- [ ] FFmpeg command template for背景+テロップ+ウォーターマーク。
+- [x] FFmpeg command template for背景+テロップ+ウォーターマーク (`src/render/ffmpeg_runner.py`)。
 - [ ] SRT generator and metadata writer。
 - [ ] Batch renderer CLI (`scripts/batch_render.py`) が glob で複数 YAML を処理。
 - [ ] Mac 向け `Setup.command` / `RunVoicevoxGUI.command` のような環境整備スクリプトを用意し、依存ツール (VOICEVOX, FFmpeg) の導入手順を自動化する。
