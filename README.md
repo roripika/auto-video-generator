@@ -1,44 +1,44 @@
 # Auto Explainer Video Generator
 
-This repository contains the groundwork for a new tool that automatically produces explainer-style videos from structured content. The initial milestones focus on defining requirements, planning the pipeline (script authoring → narration → visuals → editing), and setting up the development environment.
+このリポジトリは、構造化された台本データから解説動画を自動生成するツールのベースです。台本作成 → ナレーション → ビジュアル → 編集というパイプラインを定義し、開発環境を整えることを初期目標にしています。
 
-## Repository layout
+## リポジトリ構成
 
 ```
 auto-video-generator/
-├── docs/        # Specifications, research notes, mockups
-├── src/         # Application source code (to be populated)
-├── scripts/     # Helper scripts for setup, builds, etc.
-└── README.md    # Project overview
+├── docs/        # 仕様・調査メモ
+├── src/         # アプリケーション本体ソース
+├── scripts/     # CLI や補助スクリプト
+└── README.md    # このファイル
 ```
 
-## Next steps
+## 今後の進め方
 
-1. Draft high-level requirements in `docs/requirements.md`.
-2. Outline the media-generation pipeline and required external services.
-3. Decide on the tech stack for narration (TTS), motion graphics, and final compositing.
-4. Prototype a minimal CLI that converts a markdown script into a narrated slideshow video.
+1. `docs/requirements.md` で要件とユースケースを具体化。
+2. 台本 → 音声 → 映像 → 出力の各ステップをモジュール分割し、必要な外部サービスを整理。
+3. ナレーション TTS、映像合成（FFmpeg）、サムネ生成などに使う技術スタックを決定。
+4. CLI から YAML 台本を読み込み、VOICEVOX 音声と背景映像を合成する最小パイプラインを試作。
 
-Feel free to adapt this structure as the project evolves.
+プロジェクトの成長に合わせて柔軟に更新してください。
 
-## Reference Policy
+## 参照ポリシー
 
-- 外部プロジェクト（例: `voicevox-storycaster`）は **参照のみ** とし、分析結果をこのリポジトリへ反映する形で活用します。
-- これら外部リポジトリを直接編集したり PR を送ることは行いません。必要な変更は常に本リポジトリ内で独自実装してください。
+- 外部プロジェクト（例: `voicevox-storycaster`）は **参照のみ** とし、得られた知見を本リポジトリへ落とし込む形で利用します。
+- 外部リポジトリに直接コミットや PR を送ることは行いません。改修は必ず本リポジトリで独自実装します。
 
-## Getting started
+## セットアップ手順
 
-### 1. Install dependencies
+### 1. 依存ライブラリのインストール
 ```
 pip install pydantic PyYAML requests
 ```
 
-### 2. Generate narration WAV files
+### 2. ナレーション音声（WAV）の生成
 ```
 python scripts/generate_audio.py --script path/to/script.yaml [--config configs/config.yaml]
 ```
-This command loads the YAML script via `ScriptModel`, calls the VOICEVOX API section by section, and saves WAV files under `work/audio/`.
+YAML 台本を `ScriptModel` で読み込み、VOICEVOX API をセクションごとに呼び出して `work/audio/` 配下へ WAV を保存します。
 
-### 3. Convenience scripts (macOS)
-- `Setup.command`: virtualenv 作成・依存インストール・ffmpeg の導入を実行。
-- `RunVoicevoxGUI.command`: インストール済みの VOICEVOX GUI を起動。
+### 3. macOS 向け補助スクリプト
+- `Setup.command`: 仮想環境の作成、依存インストール、ffmpeg 導入をまとめて実行。
+- `RunVoicevoxGUI.command`: インストール済み VOICEVOX GUI を起動します。
