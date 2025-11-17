@@ -11,17 +11,33 @@
 - [x] SRT generator and metadata writer (`src/outputs.py`)。
 - [x] Batch renderer CLI (`scripts/batch_render.py`) が glob で複数 YAML を処理。
 - [x] Mac 向け `Setup.command` / `RunVoicevoxGUI.command` のような環境整備スクリプトを用意し、依存ツール (VOICEVOX, FFmpeg) の導入手順を自動化する。
-- [ ] 台本(YAML)の入力・編集・セクション調整を行えるデスクトップ（Electron ベース）UI を設計・実装し、CLI だけでなくウインドウアプリから編集できるようにする。
-- [ ] 自然文や箇条書きから YAML 台本を AI で自動生成するユーティリティ（CLI or UI）を実装し、手動整備の負荷を減らす。
+- [x] 台本(YAML)の入力・編集・セクション調整を行えるデスクトップ（Electron ベース）UI を設計・実装し、CLI だけでなくウインドウアプリから編集できるようにする。
+- [x] 自然文や箇条書きから YAML 台本を AI で自動生成するユーティリティ（CLI or UI）を実装し、手動整備の負荷を減らす (`scripts/generate_script_from_brief.py`)。
 - [x] テーマ／ジャンル／ランキング項目数を管理する「企画テンプレート」モジュールを実装し、動画ごとに切り口・ターゲット・CTA を保存できるようにする (`src/themes.py`, `configs/themes/`).
 - [x] 科学的根拠・ブリッジ文・CTA を差し込む台本テンプレ機能を YAML スキーマ／AI プロンプトに追加し、ライフハック構成（フック→根拠→実演）を自動化する (`src/models.py`, `docs/script_template_spec.md`).
-- [ ] フリー素材サイト検索や AI 画像生成を含む「背景／アイコン素材取得パイプライン」を設計・実装する。
-- [ ] サムネイル自動生成スクリプトを追加し、驚きを与えるコピーやランキング要素をテンプレ化する。
+- [x] フリー素材サイト検索や AI 画像生成を含む「背景／アイコン素材取得パイプライン」を設計・実装する。
+- [x] サムネイル自動生成スクリプトを追加し、驚きを与えるコピーやランキング要素をテンプレ化する。
 
 ## Low Priority / Future
 - [ ] Ken Burns 風ズームのプリセット作成。
 - [ ] マルチ音声エンジン対応（COEIROINK 等）。
 - [ ] GUI や web フロントの検討。
+
+## Next Phase (Automation & QA)
+- [x] `scripts/generate_video.py` で ScriptModel → VOICEVOX → Timeline → FFmpeg → SRT/metadata を一括実行する orchestrator を実装し、`scripts/batch_render.py` がこの CLI を呼ぶだけで完パケを書き出せるようにする。
+- [x] `src/render/ffmpeg_runner.py` を拡張し、BGM トラック（ループ＋ducking）、`watermark` オーバーレイ、`credits` の描画/フェードアウトを ScriptModel の設定値から自動反映できるようにする。
+- [x] テーマ ID やセクションのキーワードから `AssetFetcher` を呼び出して背景素材を自動選定し、キャッシュメタ情報を `metadata.json` に同梱するパイプライン（背景未指定時のフォールバック）を追加する。
+- [x] `upload_prep`（title/tags/desc）を `outputs/upload/` に書き出すエクスポータを実装し、YouTube への手動アップロードがコピペで済む形に整える（CTA/ハッシュタグのテンプレも差し込み）。
+- [ ] `desktop-app` に AI フック（自然文→YAML、ブリッジ文自動生成、Monaco diff ビュー）を実装し、セクションのドラッグ並べ替えと連動して `script_editor_spec.md` の要件を満たす。
+- [x] pytest ベースの最小テストスイートを用意し、`src/timeline.py`, `src/outputs.py`, `src/assets/pipeline.py` など副作用の少ないモジュールから順に回帰テストを整備する（サンプル YAML/ダミー WAV を fixtures 化）。
+- [ ] **UI統合ロードマップ**
+  1. デスクトップアプリに自然文ブリーフ→台本生成のパネルを追加し、LLM CLI（`scripts/generate_script_from_brief.py`）を IPC 経由で呼び出せるようにする。
+  2. 背景素材設定と自動選定 UI（キーワード入力→AssetFetcher 実行→プレビュー→ScriptModel 保存）を実装する。
+  3. テキストスタイル／位置／アニメーションプリセットを編集する UI を用意し、ScriptModel の `text_style` 等へ反映する。
+  4. VOICEVOX 音声生成とタイムライン調整（WAV 長さ・pause 可視化）を UI から実行できるようにする。
+  5. キーワード検索で該当文言をハイライトし、その音声を即時再生できる確認機能を追加する。
+  6. 動画生成コマンド（`scripts/generate_video.py`）を UI から起動し、ログ表示・進捗・完了通知・ファイルリンクを提供する。
+  7. 生成した動画/SRT を UI 内で再生・確認できるビュー（もしくは OS のプレイヤー起動ボタン）を提供する。
 
 ## Notes
 - 進行中のタスクは Git issue / branch と紐付けて更新。

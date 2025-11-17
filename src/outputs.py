@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 
+from src.assets.types import DownloadedAsset
 from src.models import ScriptModel
 from src.timeline import SectionTimeline, TimelineSummary
 
@@ -38,7 +39,13 @@ def write_srt(timeline: TimelineSummary, output_path: Path) -> None:
     output_path.write_text("\n".join(lines), encoding="utf-8")
 
 
-def write_metadata(script: ScriptModel, timeline: TimelineSummary, output_path: Path) -> None:
+def write_metadata(
+    script: ScriptModel,
+    timeline: TimelineSummary,
+    output_path: Path,
+    *,
+    background_asset: DownloadedAsset | None = None,
+) -> None:
     data: Dict[str, Any] = {
         "project": script.project,
         "title": script.title,
@@ -57,5 +64,17 @@ def write_metadata(script: ScriptModel, timeline: TimelineSummary, output_path: 
             for section in timeline.sections
         ],
     }
+    if background_asset:
+        bg_meta = None
+        if background_asset.metadata_path and background_asset.metadata_path.exists():
+            try:
+                bg_meta = json.loads(background_asset.metadata_path.read_text(encoding="utf-8"))
+            except Exception:
+                bg_meta = None
+        data["background_asset"] = {
+            "path": str(background_asset.path),
+            "metadata_path": str(background_asset.metadata_path),
+            "metadata": bg_meta,
+        }
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
