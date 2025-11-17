@@ -20,7 +20,7 @@
 
 ## Low Priority / Future
 - [ ] Ken Burns 風ズームのプリセット作成。
-- [ ] マルチ音声エンジン対応（COEIROINK 等）。
+- [ ] マルチ音声エンジン対応（COEIROINK 等）。※ペンディング
 - [ ] GUI や web フロントの検討。
 
 ## Next Phase (Automation & QA)
@@ -30,14 +30,15 @@
 - [x] `upload_prep`（title/tags/desc）を `outputs/upload/` に書き出すエクスポータを実装し、YouTube への手動アップロードがコピペで済む形に整える（CTA/ハッシュタグのテンプレも差し込み）。
 - [ ] `desktop-app` に AI フック（自然文→YAML、ブリッジ文自動生成、Monaco diff ビュー）を実装し、セクションのドラッグ並べ替えと連動して `script_editor_spec.md` の要件を満たす。
 - [x] pytest ベースの最小テストスイートを用意し、`src/timeline.py`, `src/outputs.py`, `src/assets/pipeline.py` など副作用の少ないモジュールから順に回帰テストを整備する（サンプル YAML/ダミー WAV を fixtures 化）。
-- [ ] **UI統合ロードマップ**
-  1. デスクトップアプリに自然文ブリーフ→台本生成のパネルを追加し、LLM CLI（`scripts/generate_script_from_brief.py`）を IPC 経由で呼び出せるようにする。
-  2. 背景素材設定と自動選定 UI（キーワード入力→AssetFetcher 実行→プレビュー→ScriptModel 保存）を実装する。
-  3. テキストスタイル／位置／アニメーションプリセットを編集する UI を用意し、ScriptModel の `text_style` 等へ反映する。
-  4. VOICEVOX 音声生成とタイムライン調整（WAV 長さ・pause 可視化）を UI から実行できるようにする。
-  5. キーワード検索で該当文言をハイライトし、その音声を即時再生できる確認機能を追加する。
-  6. 動画生成コマンド（`scripts/generate_video.py`）を UI から起動し、ログ表示・進捗・完了通知・ファイルリンクを提供する。
-  7. 生成した動画/SRT を UI 内で再生・確認できるビュー（もしくは OS のプレイヤー起動ボタン）を提供する。
+- [ ] **UI統合ロードマップ（現状/残タスクを整理）**
+  - [x] LLM パネル: デスクトップアプリから自然文ブリーフ→`scripts/generate_script_from_brief.py` を IPC 呼び出し（renderer/main 実装済み）。
+  - [x] 背景素材 UI: キーワード入力→AssetFetcher 実行→結果リストから背景に適用（renderer/main 実装済み）。
+  - [x] テキストスタイル UI: フォント/サイズ/色/ストローク/位置/アニメーションを編集して ScriptModel に反映（renderer 実装済み）。
+  - [x] 音声生成＋タイムライン: VOICEVOX 合成を UI から実行し、`describe_timeline` で尺要約を表示（renderer/main 実装済み、波形プレビューは未対応）。
+  - [x] 動画生成 UI: `scripts/generate_video.py` を IPC で起動し、ログと生成ファイルのオープンボタンを提供（renderer/main 実装済み）。
+  - [ ] ハイライト再生: キーワード検索で該当文言をハイライトし、その音声を即時再生する UI を追加。
+  - [ ] 内部プレビュー: 生成動画/SRT をアプリ内で再生・確認するビュー（もしくは簡易プレイヤー埋め込み）を追加。
+  - [ ] タイムライン強化: WAV 波形/セクション単位の尺調整 UI、pause 可視化などを追加。
 
 ## Notes
 - 進行中のタスクは Git issue / branch と紐付けて更新。
