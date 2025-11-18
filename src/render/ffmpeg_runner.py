@@ -14,6 +14,43 @@ def _format_position(value: TextPosition, axis: str) -> str:
     raw = value.x if axis == "x" else value.y
     if isinstance(raw, int):
         return str(raw)
+    if not isinstance(raw, str):
+        return "0"
+
+    text_var = "text_w" if axis == "x" else "text_h"
+    dim_var = "w" if axis == "x" else "h"
+    token = raw.strip().lower()
+
+    if token == "center":
+        return f"({dim_var}-{text_var})/2"
+
+    if token in {"left", "top"}:
+        return "0"
+    if token in {"right"}:
+        return f"{dim_var}-{text_var}"
+    if token in {"bottom"}:
+        return f"{dim_var}-{text_var}"
+
+    # Patterns like right-180, left+40, bottom-120, top+20
+    import re
+
+    m = re.match(r"^(left|right|top|bottom|center)([+-]\d+)$", token)
+    if m:
+        anchor, offset = m.groups()
+        offset_val = offset
+        if anchor == "center":
+            base = f"({dim_var}-{text_var})/2"
+            sign = "+" if offset.startswith("+") else "-"
+            return f"{base}{sign}{offset[1:]}"
+        if anchor in {"left", "top"}:
+            base = "0"
+            sign = "+" if offset.startswith("+") else "-"
+            return f"{base}{sign}{offset[1:]}"
+        if anchor in {"right", "bottom"}:
+            base = f"{dim_var}-{text_var}"
+            sign = "+" if offset.startswith("+") else "-"
+            return f"{base}{sign}{offset[1:]}"
+
     return raw
 
 
@@ -44,6 +81,115 @@ def _build_drawtext_filters(style: TextStyle, timeline: TimelineSummary) -> str:
             f"enable='between(t,{start:.2f},{end:.2f})'"
         )
     return ",".join(filters)
+
+
+def _effect_filter(effect: str, start: float, end: float) -> str | None:
+    """Map a friendly effect name to a ffmpeg filter with enable window."""
+    effect_lower = (effect or "").strip().lower()
+    enable = f"enable='between(t,{start:.2f},{end:.2f})'"
+    if effect_lower in {"blur", "soften"}:
+        return f"gblur=sigma=12:{enable}"
+    if effect_lower in {"grayscale", "mono", "bw"}:
+        return f"hue=s=0:{enable}"
+    if effect_lower in {"vignette"}:
+        return f"vignette=PI/4:{enable}"
+    if effect_lower in {"contrast"}:
+        return f"eq=contrast=1.2:saturation=1.05:{enable}"
+    # zoompan は環境依存でエラーになりやすいので一旦無効化（将来再検討）
+    if effect_lower in {"zoom_in", "zoom-in"}:
+        return None
+    if effect_lower in {"zoom_out", "zoom-out"}:
+        return None
+    if effect_lower in {"zoom_pan_left", "zoompanleft"}:
+        return None
+    if effect_lower in {"zoom_pan_right", "zoompanright"}:
+        return None
+    return None
+
+
+def _apply_section_effects(video_label: str, script: ScriptModel, timeline: TimelineSummary) -> tuple[str, List[str]]:
+    """Apply per-section visual effects by chaining ffmpeg filters with enable windows."""
+    filters: List[str] = []
+    label = video_label
+    section_map = {section.id: section for section in script.sections}
+    for section_tl in timeline.sections:
+        section = section_map.get(section_tl.id)
+        if not section or not getattr(section, "effects", None):
+            continue
+        start = max(section_tl.start_sec, 0.0)
+        end = max(section_tl.start_sec + section_tl.duration_sec, start + 0.1)
+        for effect in section.effects:
+            filt = _effect_filter(effect, start, end)
+            if not filt:
+                continue
+            out_label = f"[vfx_{section_tl.id}_{effect}]"
+            filters.append(f"{label}{filt}{out_label}")
+            label = out_label
+    return label, filters
+
+
+def _build_section_videos(
+    script: ScriptModel,
+    timeline: TimelineSummary,
+    add_input,
+) -> tuple[str, List[str]]:
+    filters: List[str] = []
+    labels: List[str] = []
+    section_map = {section.id: section for section in script.sections}
+
+    for idx, section_tl in enumerate(timeline.sections):
+        section = section_map.get(section_tl.id)
+        bg_path = section.bg if section and section.bg else script.video.bg
+        duration = max(section_tl.duration_sec, 0.1)
+        input_idx = None
+
+        if Path(bg_path).suffix.lower() in IMAGE_EXTENSIONS:
+            input_idx = add_input(["-loop", "1", "-t", f"{duration:.2f}", "-i", bg_path])
+        else:
+            input_idx = add_input(["-i", bg_path])
+
+        base_label = f"[{input_idx}:v]"
+        # Trim/loop per section duration. Using trim to avoid excessive length.
+        section_label = f"[vsec{idx}]"
+        filters.append(f"{base_label}trim=duration={duration:.3f},setpts=PTS-STARTPTS{section_label}")
+
+        # Drawtext for this section only
+        style = script.text_style
+        drawtext = (
+            "drawtext="
+            f"fontfile='{style.font}':"
+            f"text='{_escape_text(section_tl.on_screen_text)}':"
+            f"fontsize={style.fontsize}:"
+            f"fontcolor={style.fill}:"
+            f"borderw={style.stroke.width}:"
+            f"bordercolor={style.stroke.color}:"
+            f"x={_format_position(style.position, 'x')}:"
+            f"y={_format_position(style.position, 'y')}:"
+            f"enable='between(t,0.00,{duration:.2f})'"
+        )
+        filters.append(f"{section_label}{drawtext}[vtxt{idx}]")
+        section_label = f"[vtxt{idx}]"
+
+        # Effects per section (uses 0..duration window)
+        if section and section.effects:
+            current_label = section_label
+            for effect in section.effects:
+                filt = _effect_filter(effect, 0.0, duration)
+                if not filt:
+                    continue
+                out_label = f"[vfx{idx}_{effect}]"
+                filters.append(f"{current_label}{filt}{out_label}")
+                current_label = out_label
+            section_label = current_label
+
+        labels.append(section_label)
+
+    if not labels:
+        return "", []
+
+    concat_label = "[vconcat]"
+    filters.append("".join(labels) + f"concat=n={len(labels)}:v=1:a=0{concat_label}")
+    return concat_label, filters
 
 
 def _add_credits_overlay(
@@ -95,11 +241,14 @@ def build_ffmpeg_command(
     bg_path = script.video.bg
     total_duration = max(timeline.total_duration, 1.0)
 
-    # Background video or image (always index 0)
-    if Path(bg_path).suffix.lower() in IMAGE_EXTENSIONS:
-        add_input(["-loop", "1", "-t", str(total_duration), "-i", bg_path])
-    else:
-        add_input(["-i", bg_path])
+    has_section_bg = any(getattr(sec, "bg", None) for sec in script.sections)
+
+    # Background video or image (global) only when no section-specific bg
+    if not has_section_bg:
+        if Path(bg_path).suffix.lower() in IMAGE_EXTENSIONS:
+            add_input(["-loop", "1", "-t", str(total_duration), "-i", bg_path])
+        else:
+            add_input(["-i", bg_path])
 
     # Section narration WAV inputs
     voice_indices: List[int] = []
@@ -122,16 +271,26 @@ def build_ffmpeg_command(
             watermark_index = add_input(["-i", str(wm_path)])
 
     filter_parts: List[str] = []
+    video_label = ""
 
-    # Video – drawtext per section
-    drawtext = _build_drawtext_filters(script.text_style, timeline)
-    video_label = "[0:v]"
-    if drawtext:
-        filter_parts.append(f"{video_label}{drawtext}[vtext]")
-        video_label = "[vtext]"
+    if has_section_bg:
+        video_label, section_filters = _build_section_videos(script, timeline, add_input)
+        filter_parts.extend(section_filters)
     else:
-        filter_parts.append(f"{video_label}copy[vtext]")
-        video_label = "[vtext]"
+        # Video – drawtext per section
+        drawtext = _build_drawtext_filters(script.text_style, timeline)
+        video_label = "[0:v]"
+        if drawtext:
+            filter_parts.append(f"{video_label}{drawtext}[vtext]")
+            video_label = "[vtext]"
+        else:
+            filter_parts.append(f"{video_label}copy[vtext]")
+            video_label = "[vtext]"
+
+        # Section visual effects (blur/grayscale/vignette/contrast etc.)
+        vfx_label, vfx_filters = _apply_section_effects(video_label, script, timeline)
+        filter_parts.extend(vfx_filters)
+        video_label = vfx_label
 
     # Watermark overlay (if available)
     if watermark_index is not None:

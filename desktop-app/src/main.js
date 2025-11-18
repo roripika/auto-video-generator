@@ -26,6 +26,8 @@ const DESCRIBE_TIMELINE_SCRIPT = path.join(PROJECT_ROOT, 'scripts', 'describe_ti
 const GENERATE_VIDEO_SCRIPT = path.join(PROJECT_ROOT, 'scripts', 'generate_video.py');
 const TMP_DIR = path.join(PROJECT_ROOT, 'tmp');
 const UI_SCRIPT_PATH = path.join(TMP_DIR, 'ui_script.yaml');
+const AUDIO_CACHE_DIR = path.join(PROJECT_ROOT, 'work', 'audio');
+const OUTPUTS_DIR = path.join(PROJECT_ROOT, 'outputs', 'rendered');
 
 let currentSettings = loadAISettings();
 let mainWindowRef = null;
@@ -245,9 +247,38 @@ function registerHandlers() {
     if (payload?.skipAudio) args.push('--skip-audio');
     if (payload?.forceAudio) args.push('--force-audio');
     const result = await runPythonText(args, '動画生成に失敗しました。');
-    const outputDir = payload?.outputDir || path.join(PROJECT_ROOT, 'outputs', 'rendered');
+    const outputDir = payload?.outputDir || OUTPUTS_DIR;
     const filename = script?.output?.filename || 'output.mp4';
     return { ...result, outputPath: path.join(outputDir, filename) };
+  });
+
+  ipcMain.handle('audio:clear', async () => {
+    try {
+      fs.rmSync(AUDIO_CACHE_DIR, { recursive: true, force: true });
+      fs.mkdirSync(AUDIO_CACHE_DIR, { recursive: true });
+      return { ok: true };
+    } catch (err) {
+      console.error('Failed to clear audio cache', err);
+      throw new Error('音声キャッシュの削除に失敗しました。');
+    }
+  });
+
+  ipcMain.handle('video:get-latest', async () => {
+    try {
+      if (!fs.existsSync(OUTPUTS_DIR)) {
+        return { path: null };
+      }
+      const files = fs
+        .readdirSync(OUTPUTS_DIR)
+        .filter((f) => f.toLowerCase().endsWith('.mp4'))
+        .map((f) => path.join(OUTPUTS_DIR, f));
+      if (!files.length) return { path: null };
+      files.sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
+      return { path: files[0] };
+    } catch (err) {
+      console.error('Failed to get latest video', err);
+      return { path: null };
+    }
   });
   ipcMain.handle('video:open-output', async (event, payload) => {
     const target = payload?.path;

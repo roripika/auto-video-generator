@@ -24,6 +24,7 @@
   const textPosYInput = document.getElementById('textPosYInput');
   const textAnimationInput = document.getElementById('textAnimationInput');
   const audioGenerateBtn = document.getElementById('audioGenerateBtn');
+  const audioClearBtn = document.getElementById('audioClearBtn');
   const timelineRefreshBtn = document.getElementById('timelineRefreshBtn');
   const timelineSummaryEl = document.getElementById('timelineSummary');
   const videoGenerateBtn = document.getElementById('videoGenerateBtn');
@@ -89,6 +90,7 @@
 
   async function init() {
     await loadSettings();
+    await loadLatestVideo();
     state.themes = await window.api.listThemes();
     populateThemeSelect();
     if (state.themes.length) {
@@ -409,10 +411,12 @@
       return;
     }
     const sectionCount = state.script.sections.length;
+    const estimatedDuration = estimateDurationFromText(state.script);
     summaryPanelEl.innerHTML = `
       <div><strong>タイトル:</strong> ${state.script.title}</div>
       <div><strong>ファイル:</strong> ${state.filePath || '未保存'}</div>
       <div><strong>セクション数:</strong> ${sectionCount}</div>
+      <div><strong>推定尺(文字ベース):</strong> 約 ${estimatedDuration.toFixed(1)} 秒</div>
       <div><strong>CTA:</strong> ${state.script.sections[0]?.cta || ''}</div>
     `;
   }
@@ -709,6 +713,20 @@
     }
   }
 
+  async function loadLatestVideo() {
+    try {
+      const result = await window.api.getLatestVideo();
+      if (result && result.path) {
+        state.lastVideoPath = result.path;
+        if (videoOpenBtn) {
+          videoOpenBtn.disabled = false;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load latest video', err);
+    }
+  }
+
   function populateProviderOptions() {
     settingsProviderSelect.innerHTML = '';
     Object.entries(PROVIDER_PRESETS).forEach(([value, meta]) => {
@@ -833,6 +851,23 @@
   }
   if (audioGenerateBtn) {
     audioGenerateBtn.addEventListener('click', handleGenerateAudio);
+  }
+  if (audioClearBtn && window.api.clearAudioCache) {
+    audioClearBtn.addEventListener('click', async () => {
+      try {
+        audioClearBtn.disabled = true;
+        audioClearBtn.textContent = '削除中...';
+        await window.api.clearAudioCache();
+        setStatus('音声キャッシュを削除しました。');
+        renderTimelineSummary();
+      } catch (err) {
+        console.error(err);
+        setStatus('音声キャッシュの削除に失敗しました。');
+      } finally {
+        audioClearBtn.disabled = false;
+        audioClearBtn.textContent = '音声キャッシュ削除';
+      }
+    });
   }
   if (timelineRefreshBtn) {
     timelineRefreshBtn.addEventListener('click', handleTimelineRefresh);
