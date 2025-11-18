@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <title>背景素材検索</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      body {
+        padding: 12px;
+      }
+      .asset-results li {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+      }
+      #results {
+        max-height: calc(100vh - 200px);
+        overflow-y: auto;
+        padding-right: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>背景素材検索</h2>
+    <div class="asset-fetcher">
+      <input id="keyword" type="text" placeholder="キーワード" />
+      <select id="kind">
+        <option value="video">動画</option>
+        <option value="image">画像</option>
+      </select>
+      <label class="asset-checkbox">
+        <input type="checkbox" id="allowAI" checked />
+        AI フォールバック
+      </label>
+      <button id="searchBtn">検索</button>
+    </div>
+    <ul id="results" class="asset-results"></ul>
+    <script src="assets.js"></script>
+  </body>
+</html>

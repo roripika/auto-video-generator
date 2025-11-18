@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Auto Explainer Script Editor</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="left-controls">
+        <button id="newScriptBtn">新規 (テーマから)</button>
+        <select id="themeSelect"></select>
+      </div>
+      <div class="right-controls">
+        <button id="settingsBtn" class="ghost">設定</button>
+        <button id="openScriptBtn">開く</button>
+        <button id="saveScriptBtn" class="primary">保存</button>
+      </div>
+    </header>
+
+    <section class="panel panel--ai">
+      <h2>AI 台本生成</h2>
+      <textarea
+        id="aiBriefInput"
+        placeholder="例: 忙しい朝でもできる驚きの時短ライフハックをランキング形式で紹介したい…"
+      ></textarea>
+      <div class="ai-controls">
+        <label>
+          セクション数
+          <input id="aiSectionsInput" type="number" min="3" max="10" value="5" />
+        </label>
+        <button id="aiGenerateBtn" class="primary">AI で生成</button>
+      </div>
+      <p class="ai-hint">テーマは上部セレクトで選択したものが利用されます。</p>
+    </section>
+
+    <section class="panel panel--assets">
+      <h2>背景素材</h2>
+      <label>現在の背景
+        <input id="bgPathInput" type="text" placeholder="assets/cache/..." readonly />
+      </label>
+      <div class="asset-actions" style="gap:8px; display:flex; flex-wrap:wrap;">
+        <button id="bgBrowseBtn">ファイルを選択</button>
+        <button id="assetOpenWindowBtn" class="ghost">別ウインドウで検索</button>
+      </div>
+    </section>
+
+    <section class="panel panel--text-style">
+      <h2>テキストスタイル</h2>
+      <div class="text-style-grid">
+        <label>フォント
+          <input id="textFontInput" type="text" placeholder="Noto Sans JP" />
+        </label>
+        <label>フォントサイズ
+          <input id="textFontSizeInput" type="number" min="24" max="120" step="2" />
+        </label>
+        <label>文字色
+          <input id="textFillInput" type="color" />
+        </label>
+        <label>縁取り色
+          <input id="textStrokeColorInput" type="color" />
+        </label>
+        <label>縁取り幅
+          <input id="textStrokeWidthInput" type="number" min="0" max="20" />
+        </label>
+        <label>位置 X
+          <input id="textPosXInput" type="text" placeholder="center / left+40 / 数値" />
+        </label>
+        <label>位置 Y
+          <input id="textPosYInput" type="text" placeholder="bottom-180 / 数値" />
+        </label>
+        <label>アニメーション
+          <input id="textAnimationInput" type="text" placeholder="fade, slide-in 等" />
+        </label>
+      </div>
+    </section>
+
+    <section class="panel panel--audio">
+      <h2>音声 & タイムライン</h2>
+      <div class="audio-controls">
+        <button id="audioGenerateBtn">VOICEVOX で音声生成</button>
+        <button id="timelineRefreshBtn">タイムライン更新</button>
+      </div>
+      <div id="timelineSummary" class="timeline-summary">未計算</div>
+    </section>
+
+    <section class="panel panel--video">
+      <h2>動画生成</h2>
+      <div class="video-controls">
+        <button id="videoGenerateBtn" class="primary">動画を生成</button>
+        <button id="videoOpenBtn" disabled>生成動画を開く</button>
+      </div>
+      <textarea id="videoLog" class="video-log" readonly></textarea>
+    </section>
+
+    <main class="layout">
+      <section class="panel panel--sidebar">
+        <h2>セクション一覧</h2>
+        <ul id="sectionList" class="section-list"></ul>
+        <button id="addSectionBtn">セクション追加</button>
+      </section>
+
+      <section class="panel panel--form">
+        <h2>セクション編集</h2>
+        <div id="sectionForm" class="form-grid"></div>
+      </section>
+
+      <section class="panel panel--preview">
+        <h2>プレビュー</h2>
+        <div id="summaryPanel" class="summary"></div>
+        <h3>YAML</h3>
+        <textarea id="yamlPreview" readonly></textarea>
+      </section>
+    </main>
+
+    <div id="settingsModal" class="modal hidden">
+      <div class="modal__content">
+        <div class="modal__header">
+          <h2>AI 設定</h2>
+          <button id="settingsCloseBtn" class="ghost">&times;</button>
+        </div>
+        <div class="modal__body">
+          <label>AI プロバイダ
+            <select id="settingsProvider"></select>
+          </label>
+          <label>API Key
+            <input id="settingsApiKey" type="password" placeholder="sk-..." autocomplete="off" />
+          </label>
+          <label>Base URL
+            <input id="settingsBaseUrl" type="text" placeholder="https://api.openai.com/v1" />
+          </label>
+          <label>モデル ID
+            <input id="settingsModel" type="text" placeholder="gpt-4o-mini" />
+          </label>
+          <p id="providerHint" class="modal__hint"></p>
+          <p class="modal__hint">※ 設定ファイルは `settings/ai_settings.json` に保存されます（Git 管理対象外）。</p>
+          <hr />
+          <h3>素材・画像生成 API</h3>
+          <label>素材検索の優先順位
+            <select id="settingsProviderOrder">
+              <option value="pexels,pixabay">Pexels → Pixabay</option>
+              <option value="pixabay,pexels">Pixabay → Pexels</option>
+            </select>
+          </label>
+          <label>検索件数 (最大)
+            <input id="settingsMaxResults" type="number" min="1" max="10" value="5" />
+          </label>
+          <label>Pexels API Key
+            <input id="settingsPexelsKey" type="password" placeholder="PEXELS_API_KEY" autocomplete="off" />
+          </label>
+          <p class="modal__hint">
+            取得: <a href="https://www.pexels.com/api/" target="_blank" rel="noreferrer">https://www.pexels.com/api/</a>
+          </p>
+          <label>Pixabay API Key
+            <input id="settingsPixabayKey" type="password" placeholder="PIXABAY_API_KEY" autocomplete="off" />
+          </label>
+          <p class="modal__hint">
+            取得: <a href="https://pixabay.com/api/docs/" target="_blank" rel="noreferrer">https://pixabay.com/api/docs/</a>
+          </p>
+          <label>Stability API Key (AI画像生成)
+            <input id="settingsStabilityKey" type="password" placeholder="STABILITY_API_KEY" autocomplete="off" />
+          </label>
+          <p class="modal__hint">
+            取得: <a href="https://platform.stability.ai/" target="_blank" rel="noreferrer">https://platform.stability.ai/</a>
+          </p>
+        </div>
+        <div class="modal__actions">
+          <button id="settingsCancelBtn">キャンセル</button>
+          <button id="settingsSaveBtn" class="primary">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>
