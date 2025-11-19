@@ -34,6 +34,7 @@
   const videoLogEl = document.getElementById('videoLog');
   const voiceSpeakerSelect = document.getElementById('voiceSpeakerSelect');
   const voiceSpeakerLabel = document.getElementById('voiceSpeakerLabel');
+  const infoButtons = document.querySelectorAll('.info-btn');
   const statusBadge = document.createElement('span');
   statusBadge.className = 'status';
   document.querySelector('.app-header').appendChild(statusBadge);
@@ -1022,6 +1023,21 @@
   if (settingsModelInput) settingsModelInput.addEventListener('input', markDirty);
   if (yamlEditBtn) yamlEditBtn.addEventListener('click', enterYamlEditMode);
   if (yamlApplyBtn) yamlApplyBtn.addEventListener('click', handleYamlApply);
+  if (infoButtons && infoButtons.length) {
+    infoButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.info;
+        const messages = {
+          brief: 'AI台本生成: ブリーフとセクション数を入力し、テーマを選んで「AIで生成」を押すと YAML 台本を生成します。生成後は必要に応じて編集してから保存してください。',
+          assets: '背景素材: 背景ファイルを指定するか、「別ウインドウで検索」で Pexels/Pixabay/AI から素材を取得できます。結果から全体またはセクションごとに適用可能です。',
+          textstyle: 'テキストスタイル: フォント、サイズ、色、縁取り、位置、アニメーションを設定し、テロップ表示に反映します。YAMLにも保存されます。',
+        };
+        const msg = messages[key] || 'この機能の説明は準備中です。';
+        setStatus(msg);
+        alert(msg);
+      });
+    });
+  }
 
   renderAssetResults();
   renderTimelineSummary();
