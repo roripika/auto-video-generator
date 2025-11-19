@@ -42,6 +42,7 @@ class TextStyle(BaseModel):
     position: TextPosition = TextPosition()
     max_chars_per_line: int = 22
     lines: int = 3
+    animation: Optional[str] = None
 
 
 class BGMAudio(BaseModel):
@@ -66,11 +67,14 @@ class Section(BaseModel):
     on_screen_text: str
     narration: str
     duration_hint_sec: Optional[float] = None
+    bg: Optional[str] = None
+    bg_keyword: Optional[str] = None
     hook: Optional[str] = None
     evidence: Optional[str] = None
     demo: Optional[str] = None
     bridge: Optional[str] = None
     cta: Optional[str] = None
+    effects: List[str] = Field(default_factory=list)
 
 
 class OutputOptions(BaseModel):
@@ -127,13 +131,29 @@ class CTAConfig(BaseModel):
     secondary: Optional[str] = "チャンネル登録と高評価もよろしくお願いします。"
 
 
+class ThumbnailStyle(BaseModel):
+    width: int = 1280
+    height: int = 720
+    background_color: str = "#050505"
+    overlay_opacity: float = 0.35
+    primary_color: str = "#FFE65A"
+    accent_color: str = "#FF4D6D"
+    stroke_color: str = "#000000"
+    stroke_width: int = 6
+    font_heading: Optional[str] = None
+    font_subheading: Optional[str] = None
+    icon_path: Optional[str] = None
+
+
 class ThemeTemplate(BaseModel):
     id: str
     label: str
     genre: str
     description: Optional[str] = None
+    layout: Literal["ranking", "story", "steps"] = "ranking"
     hook_phrases: List[str] = []
     ranking: RankingSettings = RankingSettings()
     cta: CTAConfig = CTAConfig()
     script_guidelines: List[str] = []
     thumbnail_keywords: List[str] = []
+    thumbnail: Optional[ThumbnailStyle] = None
