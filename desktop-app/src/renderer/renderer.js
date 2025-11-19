@@ -123,14 +123,19 @@
   }
 
   async function init() {
-    await loadSettings();
-    await loadVoicevoxSpeakers();
-    await loadLatestVideo();
-    state.themes = await window.api.listThemes();
-    populateThemeSelect();
-    if (state.themes.length) {
-      themeSelect.value = state.themes[0].id;
-      await createScriptFromTheme();
+    try {
+      await loadSettings();
+      await loadVoicevoxSpeakers();
+      await loadLatestVideo();
+      state.themes = await window.api.listThemes();
+      populateThemeSelect();
+      if (state.themes.length) {
+        themeSelect.value = state.themes[0].id;
+        await createScriptFromTheme();
+      }
+    } catch (err) {
+      console.error('Init failed', err);
+      setStatus(`初期化に失敗しました: ${err.message || err}`);
     }
   }
 
@@ -807,7 +812,7 @@
   async function loadVoicevoxSpeakers() {
     const endpoint = 'http://localhost:50021';
     try {
-      const res = await fetch(`${endpoint.replace(/\\/$/, '')}/speakers`);
+      const res = await fetch(`${endpoint.replace(/\/$/, '')}/speakers`);
       const data = await res.json();
       const flattened = [];
       data.forEach((sp) => {
