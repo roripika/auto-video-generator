@@ -110,9 +110,9 @@ textarea {
   border: 1px solid #282832;
   border-radius: 10px;
   padding: 12px;
-  height: calc(100vh - 120px);
+  height: auto;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible;
   display: flex;
   flex-direction: column;
 }
