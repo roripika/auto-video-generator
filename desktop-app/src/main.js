@@ -367,7 +367,7 @@ function buildDefaultScript(theme) {
     video: { width: 1920, height: 1080, fps: 30, bg: 'assets/cache/default.mp4', bg_fit: 'cover' },
     voice: {
       engine: 'voicevox',
-      speaker_id: 88, // 青山龍星
+      speaker_id: 13, // 青山龍星ノーマル
       speedScale: 1.02,
       pitchScale: 0.0,
       intonationScale: 1.1,

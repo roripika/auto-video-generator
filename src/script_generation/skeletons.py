@@ -62,7 +62,7 @@ def build_script_skeleton(theme: Optional[ThemeTemplate], section_count: int) ->
         ),
         voice=VoiceSettings(
             engine="voicevox",
-            speaker_id=88,
+            speaker_id=13,
             speedScale=1.02,
             pitchScale=0.0,
             intonationScale=1.1,

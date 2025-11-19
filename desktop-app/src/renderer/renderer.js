@@ -100,7 +100,7 @@
   };
 
   const VOICEVOX_SPEAKERS = [
-    { id: 88, name: '青山龍星' },
+    { id: 13, name: '青山龍星 (ノーマル)' },
     { id: 3, name: 'ずんだもん(ノーマル)' },
     { id: 1, name: '四国めたん(ノーマル)' },
   ];
