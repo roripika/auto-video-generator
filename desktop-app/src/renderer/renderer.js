@@ -3,6 +3,8 @@
   const sectionListEl = document.getElementById('sectionList');
   const sectionFormEl = document.getElementById('sectionForm');
   const yamlPreviewEl = document.getElementById('yamlPreview');
+  const yamlEditBtn = document.getElementById('yamlEditBtn');
+  const yamlApplyBtn = document.getElementById('yamlApplyBtn');
   const summaryPanelEl = document.getElementById('summaryPanel');
   const aiBriefInput = document.getElementById('aiBriefInput');
   const aiSectionsInput = document.getElementById('aiSectionsInput');
@@ -30,6 +32,8 @@
   const videoGenerateBtn = document.getElementById('videoGenerateBtn');
   const videoOpenBtn = document.getElementById('videoOpenBtn');
   const videoLogEl = document.getElementById('videoLog');
+  const voiceSpeakerSelect = document.getElementById('voiceSpeakerSelect');
+  const voiceSpeakerLabel = document.getElementById('voiceSpeakerLabel');
   const statusBadge = document.createElement('span');
   statusBadge.className = 'status';
   document.querySelector('.app-header').appendChild(statusBadge);
@@ -86,7 +90,31 @@
     videoGenerating: false,
     videoLog: '',
     lastVideoPath: '',
+    yamlEditMode: false,
   };
+
+  const VOICEVOX_SPEAKERS = [
+    { id: 88, name: '青山龍星' },
+    { id: 3, name: 'ずんだもん(ノーマル)' },
+    { id: 1, name: '四国めたん(ノーマル)' },
+  ];
+
+  function estimateDurationFromText(script) {
+    if (!script || !Array.isArray(script.sections)) return 0;
+    const pauseSec = (script.voice?.pause_msec || 0) / 1000;
+    const sections = script.sections;
+    let total = 0;
+    sections.forEach((sec, idx) => {
+      const text = (sec.narration || sec.on_screen_text || '').trim();
+      const length = Math.max(text.length, 1);
+      const est = Math.max(5, length / 9);
+      total += est;
+      if (idx < sections.length - 1) {
+        total += pauseSec;
+      }
+    });
+    return total;
+  }
 
   async function init() {
     await loadSettings();
@@ -196,6 +224,7 @@
     try {
       await window.api.generateAudio({ script: state.script });
       setStatus('VOICEVOX 音声の生成が完了しました。');
+      await handleTimelineRefresh();
     } catch (err) {
       console.error(err);
       setStatus(`音声生成に失敗しました: ${err.message || err}`);
@@ -288,7 +317,42 @@
     updateBackgroundField();
     renderAssetResults();
     syncTextStyleForm();
+    renderVoiceSpeaker();
     renderTimelineSummary();
+  }
+
+  function enterYamlEditMode() {
+    state.yamlEditMode = true;
+    yamlPreviewEl.readOnly = false;
+    if (yamlApplyBtn) yamlApplyBtn.disabled = false;
+    if (yamlEditBtn) yamlEditBtn.disabled = true;
+    yamlPreviewEl.focus();
+  }
+
+  function exitYamlEditMode() {
+    state.yamlEditMode = false;
+    yamlPreviewEl.readOnly = true;
+    if (yamlApplyBtn) yamlApplyBtn.disabled = true;
+    if (yamlEditBtn) yamlEditBtn.disabled = false;
+  }
+
+  function handleYamlApply() {
+    try {
+      const parsed = window.yaml.parse(yamlPreviewEl.value || '');
+      if (parsed && parsed.__error) {
+        setStatus(`YAML解析に失敗しました: ${parsed.__error}`);
+        return;
+      }
+      state.script = parsed;
+      state.filePath = state.filePath || null;
+      state.selectedIndex = 0;
+      exitYamlEditMode();
+      setStatus('YAMLを適用しました。');
+      render();
+    } catch (err) {
+      console.error(err);
+      setStatus(`YAMLの適用に失敗しました: ${err.message || err}`);
+    }
   }
 
   function renderSectionList() {
@@ -427,6 +491,9 @@
       return;
     }
     yamlPreviewEl.value = window.yaml.stringify(state.script);
+    yamlPreviewEl.readOnly = !state.yamlEditMode;
+    if (yamlApplyBtn) yamlApplyBtn.disabled = !state.yamlEditMode;
+    if (yamlEditBtn) yamlEditBtn.disabled = state.yamlEditMode;
   }
 
   function addSection() {
@@ -450,6 +517,24 @@
     // メインウインドウでは検索リストを表示しない（別ウインドウへ移行）
     if (!assetResultList) return;
     assetResultList.innerHTML = '';
+  }
+
+  function renderVoiceSpeaker() {
+    if (!voiceSpeakerSelect) return;
+    if (!voiceSpeakerSelect.hasChildNodes()) {
+      VOICEVOX_SPEAKERS.forEach((sp) => {
+        const opt = document.createElement('option');
+        opt.value = String(sp.id);
+        opt.textContent = `${sp.name} (id:${sp.id})`;
+        voiceSpeakerSelect.appendChild(opt);
+      });
+    }
+    const speakerId = state.script?.voice?.speaker_id ?? '';
+    voiceSpeakerSelect.value = String(speakerId);
+    const found = VOICEVOX_SPEAKERS.find((s) => String(s.id) === String(speakerId));
+    if (voiceSpeakerLabel) {
+      voiceSpeakerLabel.textContent = found ? `現在: ${found.name} (id:${found.id})` : `id: ${speakerId || '未設定'}`;
+    }
   }
 
   function renderTimelineSummary() {
@@ -869,6 +954,21 @@
       }
     });
   }
+  if (voiceSpeakerSelect) {
+    voiceSpeakerSelect.addEventListener('change', (e) => {
+      if (!state.script) return;
+      const val = Number(e.target.value);
+      if (!state.script.voice) {
+        state.script.voice = { engine: 'voicevox', speaker_id: val };
+      } else {
+        state.script.voice.engine = 'voicevox';
+        state.script.voice.speaker_id = val;
+      }
+      renderVoiceSpeaker();
+      renderYaml();
+      setStatus(`話者を id:${val} に変更しました。`);
+    });
+  }
   if (timelineRefreshBtn) {
     timelineRefreshBtn.addEventListener('click', handleTimelineRefresh);
   }
@@ -894,6 +994,8 @@
   if (settingsProviderSelect) settingsProviderSelect.addEventListener('change', handleProviderChanged);
   if (settingsBaseUrlInput) settingsBaseUrlInput.addEventListener('input', markDirty);
   if (settingsModelInput) settingsModelInput.addEventListener('input', markDirty);
+  if (yamlEditBtn) yamlEditBtn.addEventListener('click', enterYamlEditMode);
+  if (yamlApplyBtn) yamlApplyBtn.addEventListener('click', handleYamlApply);
 
   renderAssetResults();
   renderTimelineSummary();

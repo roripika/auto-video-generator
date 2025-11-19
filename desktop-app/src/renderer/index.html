@@ -82,6 +82,12 @@
         <button id="timelineRefreshBtn">タイムライン更新</button>
         <button id="audioClearBtn" class="ghost">音声キャッシュ削除</button>
       </div>
+      <div class="audio-controls">
+        <label>話者
+          <select id="voiceSpeakerSelect"></select>
+        </label>
+        <span id="voiceSpeakerLabel" class="meta"></span>
+      </div>
       <div id="timelineSummary" class="timeline-summary">未計算</div>
     </section>
 
@@ -110,6 +116,10 @@
         <h2>プレビュー</h2>
         <div id="summaryPanel" class="summary"></div>
         <h3>YAML</h3>
+        <div class="yaml-actions">
+          <button id="yamlEditBtn">編集</button>
+          <button id="yamlApplyBtn" class="primary" disabled>適用</button>
+        </div>
         <textarea id="yamlPreview" readonly></textarea>
       </section>
     </main>

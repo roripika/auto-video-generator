@@ -22,4 +22,5 @@ contextBridge.exposeInMainWorld('api', {
 
 contextBridge.exposeInMainWorld('yaml', {
   stringify: (data) => ipcRenderer.sendSync('yaml:stringify', data),
+  parse: (text) => ipcRenderer.sendSync('yaml:parse', text),
 });

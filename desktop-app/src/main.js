@@ -295,6 +295,16 @@ function registerHandlers() {
       event.returnValue = '';
     }
   });
+
+  ipcMain.on('yaml:parse', (event, payload) => {
+    try {
+      const parsed = YAML.parse(payload || '');
+      event.returnValue = parsed;
+    } catch (err) {
+      console.error('Failed to parse YAML', err);
+      event.returnValue = { __error: err.message || String(err) };
+    }
+  });
 }
 
 function listThemes() {
@@ -357,7 +367,7 @@ function buildDefaultScript(theme) {
     video: { width: 1920, height: 1080, fps: 30, bg: 'assets/cache/default.mp4', bg_fit: 'cover' },
     voice: {
       engine: 'voicevox',
-      speaker_id: 3,
+      speaker_id: 88, // 青山龍星
       speedScale: 1.02,
       pitchScale: 0.0,
       intonationScale: 1.1,
