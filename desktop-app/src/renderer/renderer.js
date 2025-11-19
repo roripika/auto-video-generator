@@ -91,6 +91,11 @@
     videoLog: '',
     lastVideoPath: '',
     yamlEditMode: false,
+    voicevoxSpeakers: [
+      { id: 88, name: '青山龍星' },
+      { id: 3, name: 'ずんだもん(ノーマル)' },
+      { id: 1, name: '四国めたん(ノーマル)' },
+    ],
   };
 
   const VOICEVOX_SPEAKERS = [
@@ -118,6 +123,7 @@
 
   async function init() {
     await loadSettings();
+    await loadVoicevoxSpeakers();
     await loadLatestVideo();
     state.themes = await window.api.listThemes();
     populateThemeSelect();
@@ -521,17 +527,16 @@
 
   function renderVoiceSpeaker() {
     if (!voiceSpeakerSelect) return;
-    if (!voiceSpeakerSelect.hasChildNodes()) {
-      VOICEVOX_SPEAKERS.forEach((sp) => {
-        const opt = document.createElement('option');
-        opt.value = String(sp.id);
-        opt.textContent = `${sp.name} (id:${sp.id})`;
-        voiceSpeakerSelect.appendChild(opt);
-      });
-    }
+    voiceSpeakerSelect.innerHTML = '';
+    state.voicevoxSpeakers.forEach((sp) => {
+      const opt = document.createElement('option');
+      opt.value = String(sp.id);
+      opt.textContent = `${sp.name} (id:${sp.id})`;
+      voiceSpeakerSelect.appendChild(opt);
+    });
     const speakerId = state.script?.voice?.speaker_id ?? '';
     voiceSpeakerSelect.value = String(speakerId);
-    const found = VOICEVOX_SPEAKERS.find((s) => String(s.id) === String(speakerId));
+    const found = state.voicevoxSpeakers.find((s) => String(s.id) === String(speakerId));
     if (voiceSpeakerLabel) {
       voiceSpeakerLabel.textContent = found ? `現在: ${found.name} (id:${found.id})` : `id: ${speakerId || '未設定'}`;
     }
@@ -795,6 +800,27 @@
     } catch (err) {
       console.error('Failed to load settings', err);
       state.settings = null;
+    }
+  }
+
+  async function loadVoicevoxSpeakers() {
+    const endpoint = 'http://localhost:50021';
+    try {
+      const res = await fetch(`${endpoint.replace(/\\/$/, '')}/speakers`);
+      const data = await res.json();
+      const flattened = [];
+      data.forEach((sp) => {
+        (sp.styles || []).forEach((style) => {
+          flattened.push({ id: style.id, name: `${sp.name} (${style.name})` });
+        });
+      });
+      if (flattened.length) {
+        state.voicevoxSpeakers = flattened;
+        renderVoiceSpeaker();
+        setStatus('VOICEVOX 話者リストを更新しました。');
+      }
+    } catch (err) {
+      console.warn('Failed to fetch VOICEVOX speakers; using defaults.', err);
     }
   }
 
