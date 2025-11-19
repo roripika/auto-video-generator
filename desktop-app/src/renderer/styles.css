@@ -8,7 +8,6 @@ body {
   margin: 0;
   background-color: #101013;
   color: #f2f2f2;
-  overflow-x: hidden;
 }
 
 .app-header {
@@ -120,7 +119,6 @@ textarea {
 
 .panel.panel--ai {
   margin: 12px;
-  width: calc(100% - 24px);
   height: auto;
   gap: 10px;
 }
@@ -133,28 +131,24 @@ textarea {
 
 .panel.panel--assets {
   margin: 12px;
-  width: calc(100% - 24px);
   height: auto;
   gap: 10px;
 }
 
 .panel.panel--text-style {
   margin: 12px;
-  width: calc(100% - 24px);
   height: auto;
   gap: 10px;
 }
 
 .panel.panel--audio {
   margin: 12px;
-  width: calc(100% - 24px);
   height: auto;
   gap: 10px;
 }
 
 .panel.panel--video {
   margin: 12px;
-  width: calc(100% - 24px);
   height: auto;
   gap: 10px;
 }
