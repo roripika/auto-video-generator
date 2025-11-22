@@ -32,18 +32,95 @@ auto-video-generator/
 
 ### 1. 依存ライブラリのインストール
 ```
-pip install pydantic PyYAML requests
+pip install pydantic PyYAML requests Pillow yt-dlp
 ```
 
-### 2. ナレーション音声（WAV）の生成
+### 2. AI 台本自動生成（LLM）
+```
+python scripts/generate_script_from_brief.py \
+  --brief-file notes/idea.txt \
+  --theme-id lifehack_surprise \
+  --sections 5
+```
+- `OPENAI_API_KEY`（必要なら `OPENAI_MODEL`, `OPENAI_BASE_URL`）を環境変数で指定してください。
+- `--brief` で直接テキストを渡すか、標準入力からパイプすることもできます。
+- 生成結果は `scripts/generated/` 配下に ScriptModel 互換の YAML として保存されます。必要に応じて `desktop-app` や CLI へ受け渡してください。
+- Electron デスクトップアプリ右上の **設定**（`settings/ai_settings.json` に保存）から API Key / プロバイダ / Base URL / モデルを入力しておくと、CLI でも自動で参照されます。
+- サポートするプロバイダと環境変数  
+  - OpenAI: `OPENAI_API_KEY`（任意で `OPENAI_MODEL`, `OPENAI_BASE_URL`）  
+  - Anthropic Claude: `ANTHROPIC_API_KEY`（任意で `ANTHROPIC_MODEL`, `ANTHROPIC_BASE_URL`）  
+  - Google Gemini: `GEMINI_API_KEY` または `GOOGLE_API_KEY`（任意で `GEMINI_MODEL`, `GEMINI_BASE_URL`, `GEMINI_MAX_OUTPUT_TOKENS`）
+- BGM 自動取得を有効にしたい場合は設定画面で **YouTube API Key** と **BGM ディレクトリ** を入力すると `settings/ai_settings.json` に保存され、CLI (`scripts/generate_video.py`) も同じ値を読み込みます（環境変数 `YOUTUBE_API_KEY` / `BGM_DIRECTORY` でも上書き可能）。
+
+### 3. VOICEVOX Engine のセットアップ
+```
+chmod +x scripts/setup_voicevox.sh
+./scripts/setup_voicevox.sh
+```
+- 既定では `tools/voicevox_engine/` に VOICEVOX Engine を展開します。
+- macOS では `Start_VoicevoxEngine.command` をダブルクリックするとローカル API (`http://localhost:50021`) が起動します。
+- すでに VOICEVOX Engine/GUI をインストール済みの場合はこの手順を飛ばし、`ConfigModel.voicevox_endpoint` を実際のエンドポイントに合わせてください。
+
+### 4. フルパイプライン（映像 + 音声 + SRT）
+```
+python scripts/generate_video.py \
+  --script path/to/script.yaml \
+  [--config configs/config.yaml] \
+  [--skip-audio] [--force-audio] [--dry-run]
+```
+- ScriptModel を読み込み、VOICEVOX で WAV を生成し（`work/audio/*.wav`）、タイムライン計算 → FFmpeg 合成 → SRT/metadata 出力まで一括実行します。
+- `--skip-audio`: 既存 WAV をそのまま利用したい場合に指定。`--force-audio`: 既存 WAV があっても再生成。
+- `--dry-run`: FFmpeg コマンドのみ表示して実行をスキップ。パスや設定の確認に使えます。
+- 出力先は `ConfigModel.outputs_dir`（既定: `outputs/rendered/`）。動画と同名で `.srt` / `.json` も生成されます。
+- `video.bg` や各セクションの `bg_keyword` / `bg` がローカルファイルを指していない場合、Pexels/Pixabay から自動で素材をダウンロードして補完します。セクション固有の背景が見つかったものには個別に `section.bg` が書き込まれます。
+- `bgm` が未設定、またはファイルが存在しない場合は `assets/bgm/` ディレクトリから自動で音源を選び、`bgm.file` にセットします。`YOUTUBE_API_KEY` を設定し `yt-dlp` をインストールしておくと、YouTube Audio Library（Data API）検索→自動ダウンロードで BGM を確保できます。ローカルの `assets/bgm/youtube/` にキャッシュされるため、次回以降はオフラインでも利用できます。
+
+YouTube Audio Library から BGM を自動取得するには、Google Cloud Console で API キーを発行し `YOUTUBE_API_KEY` 環境変数を設定してください（例: `export YOUTUBE_API_KEY=xxxx`）。`yt-dlp` と FFmpeg が導入済みであれば、最初の実行時に `assets/bgm/youtube/` へ mp3 がダウンロードされます。
+
+### 5. ナレーション音声のみ生成（デバッグ用途）
 ```
 python scripts/generate_audio.py --script path/to/script.yaml [--config configs/config.yaml]
 ```
 YAML 台本を `ScriptModel` で読み込み、VOICEVOX API をセクションごとに呼び出して `work/audio/` 配下へ WAV を保存します。
 
-### 3. macOS 向け補助スクリプト
+### 6. macOS 向け補助スクリプト
 - `Setup.command`: 仮想環境の作成、依存インストール、ffmpeg 導入をまとめて実行。
 - `RunVoicevoxGUI.command`: インストール済み VOICEVOX GUI を起動します。
+- `Start_DesktopApp.command`: Electron 製の台本エディタを起動します（初回は自動で `npm install` を実行）。
+- `Start_VoicevoxEngine.command`: `tools/voicevox_engine/` に展開した VOICEVOX Engine を起動します。
+
+### 7. 素材取得パイプライン
+1. `.env` などで以下のキーを設定（利用可能なサービスのみでも可）  
+   - `PEXELS_API_KEY` / `PIXABAY_API_KEY`  
+   - `STABILITY_API_KEY`（Stable Diffusion フォールバック用）
+2. CLI から素材を取得  
+   ```
+   python scripts/fetch_assets.py --keyword "ライフハック 驚き" --kind video --max-results 3
+   ```
+   成功すると `assets/cache/<keyword>/` に動画/画像とライセンス JSON が保存されます。
+3. 画像素材が足りない場合は `--kind image` または `--disable-ai` を切り替えて再実行してください。
+
+### 8. サムネイル自動生成
+```
+python scripts/generate_thumbnail.py --theme-id lifehack_surprise --headline "知らないと損" --subhead "保存版ライフハック"
+```
+- テーマ YAML の `thumbnail` セクションで色やフォントを指定可能。
+- `--background work/assets/cache/.../file.jpg` のように既存素材を合成することもできる。
+
+### 9. デスクトップ台本エディタ（Electron, β版）
+```
+cd desktop-app
+npm install
+npm start
+```
+- テーマ選択 → 新規 YAML 生成、セクション単位の編集、ファイルの読み書きが GUI から可能。
+- 右カラムの YAML プレビューで `ScriptModel` 互換のデータを即座に確認できる。
+- 生成したファイルは `scripts/` 配下など任意の場所へ保存し、既存の CLI パイプラインに渡せる。
+- ヘッダー右上の「設定」から OpenAI / Anthropic / Google Gemini の API Key やエンドポイントを登録できます（内容は `settings/ai_settings.json` に保存されます）。
+- 「AI 台本生成」パネルからブリーフを入力して LLM 生成を実行し、「背景素材」パネルでキーワード検索→AssetFetcher（Pexels/Pixabay/AI フォールバック）を呼び出して `video.bg` を設定できます。
+- 「テキストスタイル」パネルでフォント/色/位置/アニメーションを編集でき、「音声 & タイムライン」パネルから VOICEVOX 音声生成とタイムライン更新を UI から直接呼び出せます。
+- 「BGM設定」パネルで BGM ファイル/URL、音量 (dB)、ナレーション時の ducking 量、ライセンス表記メモを入力すると、生成時に自動合成されます（UI からファイル選択も可能）。
+- セクション編集フォームには「テロップセグメント」と「前景オーバーレイ」があり、行ごとのフォント/色/位置や商品画像などのレイヤーを GUI で細かく調整できます。
 
 ## 追加ドキュメント
 - `docs/requirements.md`: 雑学動画に必要なコンテンツ要件（ランキング構成、CTA、素材取得フロー）を記載。

@@ -75,6 +75,28 @@
       </div>
     </section>
 
+    <section class="panel panel--bgm">
+      <h2>BGM設定 <button class="info-btn" data-info="bgm">i</button></h2>
+      <label>ファイル/URL
+        <input id="bgmFileInput" type="text" placeholder="assets/bgm/lofi.mp3 または https://..." />
+      </label>
+      <div class="asset-actions" style="gap:8px; display:flex; flex-wrap:wrap;">
+        <button id="bgmBrowseBtn">ファイルを選択</button>
+        <button id="bgmClearBtn" class="ghost">クリア</button>
+      </div>
+      <div class="bgm-grid">
+        <label>音量 (dB)
+          <input id="bgmVolumeInput" type="number" step="1" min="-40" max="0" placeholder="-10" />
+        </label>
+        <label>ナレーション時の ducking (dB)
+          <input id="bgmDuckingInput" type="number" step="1" min="-40" max="0" placeholder="-16" />
+        </label>
+      </div>
+      <label>ライセンス表記メモ
+        <input id="bgmLicenseInput" type="text" placeholder="例: Music: _____ (Pixabay License)" />
+      </label>
+    </section>
+
     <section class="panel panel--audio">
       <h2>音声 & タイムライン</h2>
       <div class="audio-controls">
@@ -174,6 +196,14 @@
           <p class="modal__hint">
             取得: <a href="https://platform.stability.ai/" target="_blank" rel="noreferrer">https://platform.stability.ai/</a>
           </p>
+          <h3>BGM / YouTube</h3>
+          <label>YouTube API Key
+            <input id="settingsYoutubeKey" type="password" placeholder="YOUTUBE_API_KEY" autocomplete="off" />
+          </label>
+          <label>BGM ディレクトリ
+            <input id="settingsBgmDir" type="text" placeholder="assets/bgm" />
+          </label>
+          <p class="modal__hint">相対パスはプロジェクトルート（auto-video-generator）からの相対になります。</p>
         </div>
         <div class="modal__actions">
           <button id="settingsCancelBtn">キャンセル</button>

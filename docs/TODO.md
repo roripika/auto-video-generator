@@ -22,6 +22,7 @@
 - [ ] Ken Burns 風ズームのプリセット作成。
 - [ ] マルチ音声エンジン対応（COEIROINK 等）。※ペンディング
 - [ ] GUI や web フロントの検討。
+- [ ] **自動トレンド→動画→YouTube投稿パイプライン**: Google Trends 定期監視→トレンドワードからアイデア生成→AI台本→動画生成→YouTubeアップロードまでのフル自動ジョブを設計・実装する（Scheduler/キュー、API鍵管理、失敗リトライ、アップロードスクリプト含む）。
 
 ## Next Phase (Automation & QA)
 - [x] `scripts/generate_video.py` で ScriptModel → VOICEVOX → Timeline → FFmpeg → SRT/metadata を一括実行する orchestrator を実装し、`scripts/batch_render.py` がこの CLI を呼ぶだけで完パケを書き出せるようにする。
@@ -36,10 +37,13 @@
   - [x] テキストスタイル UI: フォント/サイズ/色/ストローク/位置/アニメーションを編集して ScriptModel に反映（renderer 実装済み）。
   - [x] 音声生成＋タイムライン: VOICEVOX 合成を UI から実行し、`describe_timeline` で尺要約を表示（renderer/main 実装済み、波形プレビューは未対応）。
   - [x] 動画生成 UI: `scripts/generate_video.py` を IPC で起動し、ログと生成ファイルのオープンボタンを提供（renderer/main 実装済み）。
+  - [x] BGM/YouTube 設定共有: デスクトップアプリの設定画面に YouTube API Key / BGM ディレクトリを追加し、CLI (`scripts/generate_video.py`) からも `settings/ai_settings.json` を読み込んで共通設定を再利用できるようにした（2025-11-22）。
   - [ ] ハイライト再生: キーワード検索で該当文言をハイライトし、その音声を即時再生する UI を追加。
   - [ ] 内部プレビュー: 生成動画/SRT をアプリ内で再生・確認するビュー（もしくは簡易プレイヤー埋め込み）を追加。
   - [ ] タイムライン強化: WAV 波形/セクション単位の尺調整 UI、pause 可視化などを追加。
   - [ ] 背景素材検索の別ウインドウ化: FullHDノート環境でメイン＋サブが並ぶ 900x700 目安のウインドウを新設し、プレビュー＋「全体/セクションに適用」ボタンを備える。
+  - [ ] **BGM 設定 UI**: 設定画面に BGM ファイル選択＋音量(dB)＋ナレーション時の ducking(dB)スライダーを追加し、YAML の `bgm` を編集・保存できるようにする。ライセンス表記が必要な場合は `credits.text` に追記する UX を提示。
+  - [ ] **AI台本でBGM候補も生成**: プロンプトに BGM（ジャンル/ムード/ファイル案）、音量(dB)、ducking(dB)、ライセンスメモを書かせ、生成結果をYAML `bgm`に反映する。
 
 ## Notes
 - 進行中のタスクは Git issue / branch と紐付けて更新。

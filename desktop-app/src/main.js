@@ -16,6 +16,8 @@ const DEFAULT_AI_SETTINGS = {
   pexelsApiKey: '',
   pixabayApiKey: '',
   stabilityApiKey: '',
+  youtubeApiKey: '',
+  bgmDirectory: 'assets/bgm',
   assetProviderOrder: 'pexels,pixabay',
   assetMaxResults: 5,
 };
@@ -32,6 +34,20 @@ const OUTPUTS_DIR = path.join(PROJECT_ROOT, 'outputs', 'rendered');
 let currentSettings = loadAISettings();
 let mainWindowRef = null;
 let assetWindow = null;
+let settingsWindow = null;
+
+function suggestScriptFilename(script) {
+  const raw =
+    (script && typeof script.title === 'string' && script.title) ||
+    (script && typeof script.project === 'string' && script.project) ||
+    'script';
+  const sanitized = raw
+    .trim()
+    .replace(/\s+/g, '_')
+    .replace(/[\\/:*?"<>|]/g, '_')
+    .slice(0, 80);
+  return sanitized || 'script';
+}
 
 function createWindow() {
   const mainWindow = new BrowserWindow({
@@ -126,7 +142,11 @@ function registerHandlers() {
       const result = await dialog.showSaveDialog({
         title: 'スクリプト YAML を保存',
         filters: [{ name: 'YAML', extensions: ['yaml'] }],
-        defaultPath: path.join(PROJECT_ROOT, 'scripts', 'script.yaml'),
+        defaultPath: path.join(
+          PROJECT_ROOT,
+          'scripts',
+          `${suggestScriptFilename(payload?.script)}.yaml`
+        ),
       });
       if (result.canceled || !result.filePath) {
         return { canceled: true };
@@ -202,6 +222,20 @@ function registerHandlers() {
       filters: [
         { name: 'Video', extensions: ['mp4', 'mov', 'm4v'] },
         { name: 'Image', extensions: ['jpg', 'jpeg', 'png', 'bmp'] },
+        { name: 'All files', extensions: ['*'] },
+      ],
+    });
+    if (result.canceled || !result.filePaths.length) {
+      return { canceled: true };
+    }
+    return { canceled: false, path: result.filePaths[0] };
+  });
+  ipcMain.handle('bgm:choose-file', async () => {
+    const result = await dialog.showOpenDialog({
+      title: 'BGM ファイルを選択',
+      properties: ['openFile'],
+      filters: [
+        { name: 'Audio', extensions: ['mp3', 'wav', 'm4a', 'aac', 'flac', 'ogg'] },
         { name: 'All files', extensions: ['*'] },
       ],
     });
@@ -406,10 +440,19 @@ function sanitizeSettings(payload = {}) {
     pexelsApiKey: typeof payload.pexelsApiKey === 'string' ? payload.pexelsApiKey : '',
     pixabayApiKey: typeof payload.pixabayApiKey === 'string' ? payload.pixabayApiKey : '',
     stabilityApiKey: typeof payload.stabilityApiKey === 'string' ? payload.stabilityApiKey : '',
+    youtubeApiKey: typeof payload.youtubeApiKey === 'string' ? payload.youtubeApiKey : '',
+    bgmDirectory:
+      typeof payload.bgmDirectory === 'string' && payload.bgmDirectory.trim()
+        ? payload.bgmDirectory.trim()
+        : DEFAULT_AI_SETTINGS.bgmDirectory,
     assetProviderOrder:
       typeof payload.assetProviderOrder === 'string'
         ? payload.assetProviderOrder
         : DEFAULT_AI_SETTINGS.assetProviderOrder,
+    assetMaxResults:
+      typeof payload.assetMaxResults === 'number' && Number.isFinite(payload.assetMaxResults)
+        ? payload.assetMaxResults
+        : DEFAULT_AI_SETTINGS.assetMaxResults,
   };
 }
 
@@ -477,6 +520,8 @@ function buildEnv() {
     PEXELS_API_KEY: currentSettings.pexelsApiKey || process.env.PEXELS_API_KEY,
     PIXABAY_API_KEY: currentSettings.pixabayApiKey || process.env.PIXABAY_API_KEY,
     STABILITY_API_KEY: currentSettings.stabilityApiKey || process.env.STABILITY_API_KEY,
+    YOUTUBE_API_KEY: currentSettings.youtubeApiKey || process.env.YOUTUBE_API_KEY,
+    BGM_DIRECTORY: currentSettings.bgmDirectory || process.env.BGM_DIRECTORY,
   };
 }
 
@@ -540,3 +585,25 @@ function saveTempScript(script) {
   fs.writeFileSync(UI_SCRIPT_PATH, yamlText, 'utf-8');
   return UI_SCRIPT_PATH;
 }
+  ipcMain.handle('settings:open-window', () => {
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      settingsWindow.focus();
+      return { ok: true };
+    }
+    settingsWindow = new BrowserWindow({
+      width: 640,
+      height: 760,
+      title: 'AI 設定',
+      parent: mainWindowRef || undefined,
+      webPreferences: {
+        preload: path.join(__dirname, 'preload_settings.js'),
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    });
+    settingsWindow.on('closed', () => {
+      settingsWindow = null;
+    });
+    settingsWindow.loadFile(path.join(__dirname, 'renderer', 'settings.html'));
+    return { ok: true };
+  });
