@@ -15,6 +15,7 @@
         <button id="settingsBtn" class="ghost">設定</button>
         <button id="openScriptBtn">開く</button>
         <button id="saveScriptBtn" class="primary">保存</button>
+        <button id="saveScriptAsBtn">別名で保存</button>
       </div>
     </header>
 
@@ -182,13 +183,13 @@
             <input id="settingsPexelsKey" type="password" placeholder="PEXELS_API_KEY" autocomplete="off" />
           </label>
           <p class="modal__hint">
-            取得: <a href="https://www.pexels.com/api/" target="_blank" rel="noreferrer">https://www.pexels.com/api/</a>
+            取得: <a href="https://www.pexels.com/api/" target="_blank" rel="noreferrer" data-external-link="true">https://www.pexels.com/api/</a>
           </p>
           <label>Pixabay API Key
             <input id="settingsPixabayKey" type="password" placeholder="PIXABAY_API_KEY" autocomplete="off" />
           </label>
           <p class="modal__hint">
-            取得: <a href="https://pixabay.com/api/docs/" target="_blank" rel="noreferrer">https://pixabay.com/api/docs/</a>
+            取得: <a href="https://pixabay.com/api/docs/" target="_blank" rel="noreferrer" data-external-link="true">https://pixabay.com/api/docs/</a>
           </p>
           <label>Stability API Key (AI画像生成)
             <input id="settingsStabilityKey" type="password" placeholder="STABILITY_API_KEY" autocomplete="off" />
@@ -200,6 +201,9 @@
           <label>YouTube API Key
             <input id="settingsYoutubeKey" type="password" placeholder="YOUTUBE_API_KEY" autocomplete="off" />
           </label>
+          <p class="modal__hint">
+            取得: <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noreferrer" data-external-link="true">Google Cloud Console (YouTube Data API)</a>
+          </p>
           <label>BGM ディレクトリ
             <input id="settingsBgmDir" type="text" placeholder="assets/bgm" />
           </label>

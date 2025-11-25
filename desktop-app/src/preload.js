@@ -12,12 +12,15 @@ contextBridge.exposeInMainWorld('api', {
   openAssetWindow: () => ipcRenderer.invoke('asset-window:open'),
   onAssetSelected: (callback) => ipcRenderer.on('asset:selected', (_event, payload) => callback(payload)),
   chooseBackgroundFile: () => ipcRenderer.invoke('background:choose-file'),
+  chooseBgmFile: () => ipcRenderer.invoke('bgm:choose-file'),
+  openSettingsWindow: () => ipcRenderer.invoke('settings:open-window'),
   generateAudio: (payload) => ipcRenderer.invoke('audio:generate', payload),
   clearAudioCache: () => ipcRenderer.invoke('audio:clear'),
   describeTimeline: (payload) => ipcRenderer.invoke('timeline:describe', payload),
   generateVideo: (payload) => ipcRenderer.invoke('video:generate', payload),
   openOutputPath: (payload) => ipcRenderer.invoke('video:open-output', payload),
   getLatestVideo: () => ipcRenderer.invoke('video:get-latest'),
+  openExternalLink: (url) => ipcRenderer.invoke('external:open', url),
 });
 
 contextBridge.exposeInMainWorld('yaml', {

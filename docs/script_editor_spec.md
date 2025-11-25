@@ -22,3 +22,8 @@
 - Build wireframes (Figma or markdown sketches)。特にランキングエディタとプレビューを明確化。
 - Define API contracts (`/scripts`, `/themes`, `/ai/generate-script`).
 - Implement minimal editor with theme panel + section forms + diff view。
+
+## Implementation snapshot (2024-11)
+- `desktop-app/` に Electron ベースの最小 UI を追加。テーマ選択、新規 YAML 生成、セクション編集、YAML プレビュー、ファイル保存/読込が可能。
+- まだ React/Monaco ではなく素の DOM 実装だが、`ScriptModel` とテーマテンプレをそのまま扱えるため CLI と互換性がある。
+- 今後は AI 生成フック、ドラッグによる並べ替え、Monaco による diff 表示を統合する。

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <title>AI 設定</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="settings-body">
+    <section class="settings-panel">
+      <h1>AI 設定</h1>
+      <label>AI プロバイダ
+        <select id="settingsProvider"></select>
+      </label>
+      <label>API Key
+        <input id="settingsApiKey" type="password" placeholder="sk-..." autocomplete="off" />
+      </label>
+      <label>Base URL
+        <input id="settingsBaseUrl" type="text" placeholder="https://api.openai.com/v1" />
+      </label>
+      <label>モデル ID
+        <input id="settingsModel" type="text" placeholder="gpt-4o-mini" />
+      </label>
+      <p id="providerHint" class="field-hint"></p>
+      <hr />
+      <h2>素材・画像生成 API</h2>
+      <label>素材検索の優先順位
+        <select id="settingsProviderOrder">
+          <option value="pexels,pixabay">Pexels → Pixabay</option>
+          <option value="pixabay,pexels">Pixabay → Pexels</option>
+        </select>
+      </label>
+      <label>検索件数 (最大)
+        <input id="settingsMaxResults" type="number" min="1" max="10" value="5" />
+      </label>
+      <label>Pexels API Key
+        <input id="settingsPexelsKey" type="password" placeholder="PEXELS_API_KEY" autocomplete="off" />
+      </label>
+      <p class="field-hint">
+        取得: <a href="https://www.pexels.com/api/" target="_blank" rel="noreferrer" data-external-link="true">https://www.pexels.com/api/</a>
+      </p>
+      <label>Pixabay API Key
+        <input id="settingsPixabayKey" type="password" placeholder="PIXABAY_API_KEY" autocomplete="off" />
+      </label>
+      <p class="field-hint">
+        取得: <a href="https://pixabay.com/api/docs/" target="_blank" rel="noreferrer" data-external-link="true">https://pixabay.com/api/docs/</a>
+      </p>
+      <label>Stability API Key (AI画像生成)
+        <input id="settingsStabilityKey" type="password" placeholder="STABILITY_API_KEY" autocomplete="off" />
+      </label>
+      <hr />
+      <h2>BGM / YouTube</h2>
+      <label>YouTube API Key
+        <input id="settingsYoutubeKey" type="password" placeholder="YOUTUBE_API_KEY" autocomplete="off" />
+      </label>
+      <p class="field-hint">
+        取得: <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noreferrer" data-external-link="true">Google Cloud Console (YouTube Data API)</a>
+      </p>
+      <label>BGM ディレクトリ
+        <input id="settingsBgmDir" type="text" placeholder="assets/bgm" />
+      </label>
+      <p class="field-hint">相対パスを指定した場合はプロジェクトルートからの相対になります。</p>
+      <div class="settings-actions">
+        <button id="settingsSaveBtn" class="primary">保存</button>
+      </div>
+    </section>
+    <script src="settings_window.js"></script>
+  </body>
+</html>

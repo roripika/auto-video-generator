@@ -54,6 +54,7 @@ BGM_SEARCH_DIR = resolve_bgm_directory(SHARED_SETTINGS)
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY") or SHARED_SETTINGS.get("youtubeApiKey")
 YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
 YOUTUBE_DOWNLOAD_DIR = BGM_SEARCH_DIR / "youtube"
+DEFAULT_BGM_KEYWORDS = ["雑学 BGM", "雑学bgm", "lofi bgm"]
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate full explainer video from ScriptModel YAML.")
@@ -150,6 +151,7 @@ def ensure_bgm_track(script) -> Path | None:
             keywords.append(section.bg_keyword)
         if getattr(section, "on_screen_text", None):
             keywords.append(section.on_screen_text)
+    keywords.extend(DEFAULT_BGM_KEYWORDS)
 
     youtube_candidate = fetch_youtube_bgm(keywords)
     if youtube_candidate:

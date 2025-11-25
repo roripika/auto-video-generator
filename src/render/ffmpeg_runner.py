@@ -55,31 +55,74 @@ def _format_position(value: TextPosition, axis: str) -> str:
 
 
 def _escape_text(text: str) -> str:
-    return text.replace("'", "\\'")
+    """Normalize newlines and escape characters that break drawtext."""
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n").replace("\\n", "\n")
+    return (
+        normalized.replace("\\", "\\\\")  # backslash first
+        .replace("\n", r"\n")  # ffmpeg expects literal \n tokens for line breaks
+        .replace(":", r"\:")
+        .replace(",", r"\,")
+        .replace("'", "\\'")
+    )
 
 
 def _db_to_linear(value_db: float) -> float:
     return 10 ** (value_db / 20.0)
 
 
-def _build_drawtext_filters(style: TextStyle, timeline: TimelineSummary) -> str:
+def _segment_style(base: TextStyle, segment_style: TextStyle | None) -> TextStyle:
+    if not segment_style:
+        return base
+    merged = base.model_copy(deep=True)
+    for field in ["font", "fontsize", "fill", "stroke", "position", "max_chars_per_line", "lines", "animation"]:
+        value = getattr(segment_style, field, None)
+        if value is not None:
+            setattr(merged, field, value)
+    return merged
+
+
+def _build_drawtext_filters(style: TextStyle, timeline: TimelineSummary, script: ScriptModel) -> str:
     filters = []
+    section_map = {s.id: s for s in script.sections}
     for section in timeline.sections:
-        text = _escape_text(section.on_screen_text)
-        start = max(section.start_sec, 0.0)
-        end = max(section.start_sec + section.duration_sec, start + 0.1)
-        filters.append(
-            "drawtext="
-            f"fontfile='{style.font}':"
-            f"text='{text}':"
-            f"fontsize={style.fontsize}:"
-            f"fontcolor={style.fill}:"
-            f"borderw={style.stroke.width}:"
-            f"bordercolor={style.stroke.color}:"
-            f"x={_format_position(style.position, 'x')}:"
-            f"y={_format_position(style.position, 'y')}:"
-            f"enable='between(t,{start:.2f},{end:.2f})'"
-        )
+        section_model = section_map.get(section.id)
+        segments = section_model.on_screen_segments if section_model else []
+        if segments:
+            line_offset = 0
+            for seg in segments:
+                seg_style = _segment_style(style, seg.style)
+                text = _escape_text(seg.text)
+                start = max(section.start_sec, 0.0)
+                end = max(section.start_sec + section.duration_sec, start + 0.1)
+                filters.append(
+                    "drawtext="
+                    f"fontfile='{seg_style.font}':"
+                    f"text='{text}':"
+                    f"fontsize={seg_style.fontsize}:"
+                    f"fontcolor={seg_style.fill}:"
+                    f"borderw={seg_style.stroke.width}:"
+                    f"bordercolor={seg_style.stroke.color}:"
+                    f"x={_format_position(seg_style.position, 'x')}:"
+                    f"y={_format_position(seg_style.position, 'y')}+{line_offset}:"
+                    f"enable='between(t,{start:.2f},{end:.2f})'"
+                )
+                line_offset += seg_style.fontsize + 8  # simple line spacing
+        else:
+            text = _escape_text(section.on_screen_text)
+            start = max(section.start_sec, 0.0)
+            end = max(section.start_sec + section.duration_sec, start + 0.1)
+            filters.append(
+                "drawtext="
+                f"fontfile='{style.font}':"
+                f"text='{text}':"
+                f"fontsize={style.fontsize}:"
+                f"fontcolor={style.fill}:"
+                f"borderw={style.stroke.width}:"
+                f"bordercolor={style.stroke.color}:"
+                f"x={_format_position(style.position, 'x')}:"
+                f"y={_format_position(style.position, 'y')}:"
+                f"enable='between(t,{start:.2f},{end:.2f})'"
+            )
     return ",".join(filters)
 
 
@@ -146,29 +189,52 @@ def _build_section_videos(
         if Path(bg_path).suffix.lower() in IMAGE_EXTENSIONS:
             input_idx = add_input(["-loop", "1", "-t", f"{duration:.2f}", "-i", bg_path])
         else:
-            input_idx = add_input(["-i", bg_path])
+            input_idx = add_input(["-stream_loop", "-1", "-i", bg_path])
 
         base_label = f"[{input_idx}:v]"
         # Trim/loop per section duration. Using trim to avoid excessive length.
         section_label = f"[vsec{idx}]"
         filters.append(f"{base_label}trim=duration={duration:.3f},setpts=PTS-STARTPTS{section_label}")
 
-        # Drawtext for this section only
+        # Drawtext for this section only (supports segments)
         style = script.text_style
-        drawtext = (
-            "drawtext="
-            f"fontfile='{style.font}':"
-            f"text='{_escape_text(section_tl.on_screen_text)}':"
-            f"fontsize={style.fontsize}:"
-            f"fontcolor={style.fill}:"
-            f"borderw={style.stroke.width}:"
-            f"bordercolor={style.stroke.color}:"
-            f"x={_format_position(style.position, 'x')}:"
-            f"y={_format_position(style.position, 'y')}:"
-            f"enable='between(t,0.00,{duration:.2f})'"
-        )
-        filters.append(f"{section_label}{drawtext}[vtxt{idx}]")
-        section_label = f"[vtxt{idx}]"
+        if section and section.on_screen_segments:
+            line_offset = 0
+            current_label = section_label
+            for seg_idx, seg in enumerate(section.on_screen_segments):
+                seg_style = _segment_style(style, seg.style)
+                drawtext = (
+                    "drawtext="
+                    f"fontfile='{seg_style.font}':"
+                    f"text='{_escape_text(seg.text)}':"
+                    f"fontsize={seg_style.fontsize}:"
+                    f"fontcolor={seg_style.fill}:"
+                    f"borderw={seg_style.stroke.width}:"
+                    f"bordercolor={seg_style.stroke.color}:"
+                    f"x={_format_position(seg_style.position, 'x')}:"
+                    f"y={_format_position(seg_style.position, 'y')}+{line_offset}:"
+                    f"enable='between(t,0.00,{duration:.2f})'"
+                )
+                out_label = f"[vtxt{idx}_{seg_idx}]"
+                filters.append(f"{current_label}{drawtext}{out_label}")
+                current_label = out_label
+                line_offset += seg_style.fontsize + 8
+            section_label = current_label
+        else:
+            drawtext = (
+                "drawtext="
+                f"fontfile='{style.font}':"
+                f"text='{_escape_text(section_tl.on_screen_text)}':"
+                f"fontsize={style.fontsize}:"
+                f"fontcolor={style.fill}:"
+                f"borderw={style.stroke.width}:"
+                f"bordercolor={style.stroke.color}:"
+                f"x={_format_position(style.position, 'x')}:"
+                f"y={_format_position(style.position, 'y')}:"
+                f"enable='between(t,0.00,{duration:.2f})'"
+            )
+            filters.append(f"{section_label}{drawtext}[vtxt{idx}]")
+            section_label = f"[vtxt{idx}]"
 
         # Effects per section (uses 0..duration window)
         if section and section.effects:
@@ -181,6 +247,38 @@ def _build_section_videos(
                 filters.append(f"{current_label}{filt}{out_label}")
                 current_label = out_label
             section_label = current_label
+
+        # Overlay images (foreground) per section
+        if section and section.overlays:
+            for ov_idx, overlay in enumerate(section.overlays):
+                ov_path = Path(overlay.file)
+                if not ov_path.exists():
+                    continue
+                ov_input_idx = add_input(["-i", str(ov_path)])
+                xpos = _format_position(overlay.position, "x")
+                ypos = _format_position(overlay.position, "y")
+                overlay_label = f"[{ov_input_idx}:v]"
+                current = overlay_label
+                if overlay.scale:
+                    current_label = f"[ov{idx}_{ov_idx}_scaled]"
+                    filters.append(f"{overlay_label}scale=iw*{overlay.scale}:ih*{overlay.scale}{current_label}")
+                    current = current_label
+                if overlay.opacity is not None:
+                    alpha_label = f"[ov{idx}_{ov_idx}_alpha]"
+                    filters.append(f"{current}format=rgba,colorchannelmixer=aa={overlay.opacity}{alpha_label}")
+                    current = alpha_label
+                out_label = f"[vov{idx}_{ov_idx}]"
+                filters.append(f"{section_label}{current}overlay=x={xpos}:y={ypos}:format=auto:shortest=1{out_label}")
+                section_label = out_label
+
+        # Scale/crop to target video dimensions
+        w, h = script.video.width, script.video.height
+        crop_label = f"[vscaled{idx}]"
+        filters.append(
+            f"{section_label}scale={w}:{h}:force_original_aspect_ratio=decrease,"
+            f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2,setsar=1{crop_label}"
+        )
+        section_label = crop_label
 
         labels.append(section_label)
 
@@ -248,7 +346,7 @@ def build_ffmpeg_command(
         if Path(bg_path).suffix.lower() in IMAGE_EXTENSIONS:
             add_input(["-loop", "1", "-t", str(total_duration), "-i", bg_path])
         else:
-            add_input(["-i", bg_path])
+            add_input(["-stream_loop", "-1", "-i", bg_path])
 
     # Section narration WAV inputs
     voice_indices: List[int] = []
@@ -264,9 +362,10 @@ def build_ffmpeg_command(
             bgm_index = add_input(["-stream_loop", "-1", "-i", str(bgm_path)])
 
     # Optional watermark input (as image)
+    watermark_cfg = script.watermark
     watermark_index = None
-    if script.watermark and script.watermark.file:
-        wm_path = Path(script.watermark.file)
+    if watermark_cfg and watermark_cfg.file:
+        wm_path = Path(watermark_cfg.file)
         if wm_path.exists():
             watermark_index = add_input(["-i", str(wm_path)])
 
@@ -278,7 +377,7 @@ def build_ffmpeg_command(
         filter_parts.extend(section_filters)
     else:
         # Video – drawtext per section
-        drawtext = _build_drawtext_filters(script.text_style, timeline)
+        drawtext = _build_drawtext_filters(script.text_style, timeline, script)
         video_label = "[0:v]"
         if drawtext:
             filter_parts.append(f"{video_label}{drawtext}[vtext]")
@@ -292,15 +391,49 @@ def build_ffmpeg_command(
         filter_parts.extend(vfx_filters)
         video_label = vfx_label
 
+        # Scale/crop to target resolution
+        w, h = script.video.width, script.video.height
+        filter_parts.append(
+            f"{video_label}scale={w}:{h}:force_original_aspect_ratio=decrease,"
+            f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2,setsar=1[vscaled]"
+        )
+        video_label = "[vscaled]"
+
     # Watermark overlay (if available)
     if watermark_index is not None:
-        x_pos = _format_position(script.watermark.position, "x")
-        y_pos = _format_position(script.watermark.position, "y")
+        x_pos = _format_position(watermark_cfg.position, "x")  # type: ignore[arg-type]
+        y_pos = _format_position(watermark_cfg.position, "y")  # type: ignore[arg-type]
         watermark_label = f"[{watermark_index}:v]"
         filter_parts.append(
             f"{video_label}{watermark_label}overlay=x={x_pos}:y={y_pos}:format=auto:shortest=1[vwm]"
         )
         video_label = "[vwm]"
+
+    if watermark_cfg:
+        wm_text = watermark_cfg.text or (script.bgm.license if script.bgm and script.bgm.license else None)
+        if wm_text:
+            text = _escape_text(wm_text)
+            font_path = watermark_cfg.font or script.text_style.font
+            font_size = watermark_cfg.fontsize
+            font_color = watermark_cfg.fill
+            stroke_color = watermark_cfg.stroke_color or script.text_style.stroke.color
+            stroke_width = watermark_cfg.stroke_width if watermark_cfg.stroke_width is not None else script.text_style.stroke.width
+            x_pos = _format_position(watermark_cfg.position, "x")
+            y_pos = _format_position(watermark_cfg.position, "y")
+            end_time = min(max(watermark_cfg.duration_sec, 0.1), total_duration)
+            filter_parts.append(
+                f"{video_label}drawtext="
+                f"fontfile='{font_path}':"
+                f"text='{text}':"
+                f"fontsize={font_size}:"
+                f"fontcolor={font_color}:"
+                f"borderw={stroke_width}:"
+                f"bordercolor={stroke_color}:"
+                f"x={x_pos}:"
+                f"y={y_pos}:"
+                f"enable='between(t,0.00,{end_time:.2f})'[vwmtext]"
+            )
+            video_label = "[vwmtext]"
 
     # Credits overlay (appears near the end)
     credit_label, credit_filter = _add_credits_overlay(video_label, script, timeline)

@@ -10,5 +10,22 @@ output/
 *.mp4
 *.wav
 
+# Local config
+settings/
+tools/
+.env
+.vscode/
+
+# Generated caches & logs
+assets/
+logs/
+outputs/
+tmp/
+scripts/generated/
+desktop-app/*.log
+scripts/*.log
+*.log
+script.yaml
+
 # OS artifacts
 .DS_Store

@@ -34,6 +34,11 @@ auto-video-generator/
 ```
 pip install pydantic PyYAML requests Pillow yt-dlp
 ```
+macOS 標準の Python は LibreSSL 依存のため、OpenSSL 版 Python（pyenv などで `3.10.15` を導入）で `.venv` を作ることを推奨します。`Setup.command` は Homebrew が使える環境では pyenv / gettext / ffmpeg / p7zip を自動でインストールしてから pyenv の Python で仮想環境を再構築し、`urllib3<2` を含む `requirements.txt` をインストールします。
+
+> ✅ **Tip:** pyenv のビルドが失敗した場合は、自動的に Homebrew の `python@3.11` へフォールバックします。`source .venv/bin/activate && python -c "import ssl; print(ssl.OPENSSL_VERSION)"` を実行し、`OpenSSL 3.x` が表示されるか確認してください。
+
+> 📘 **初心者向けセットアップ手順:** `docs/setup_troubleshooting.md` に Homebrew の導入方法、`PYTHON_BIN="$(brew --prefix python@3.11)/bin/python3.11"` での手動 `.venv` 再構築手順、エラー時のログ確認ポイントをまとめました。`Setup.command` がうまく動かない場合は、まずこちらを参照してください。
 
 ### 2. AI 台本自動生成（LLM）
 ```
@@ -74,6 +79,8 @@ python scripts/generate_video.py \
 - 出力先は `ConfigModel.outputs_dir`（既定: `outputs/rendered/`）。動画と同名で `.srt` / `.json` も生成されます。
 - `video.bg` や各セクションの `bg_keyword` / `bg` がローカルファイルを指していない場合、Pexels/Pixabay から自動で素材をダウンロードして補完します。セクション固有の背景が見つかったものには個別に `section.bg` が書き込まれます。
 - `bgm` が未設定、またはファイルが存在しない場合は `assets/bgm/` ディレクトリから自動で音源を選び、`bgm.file` にセットします。`YOUTUBE_API_KEY` を設定し `yt-dlp` をインストールしておくと、YouTube Audio Library（Data API）検索→自動ダウンロードで BGM を確保できます。ローカルの `assets/bgm/youtube/` にキャッシュされるため、次回以降はオフラインでも利用できます。
+- キーワードからの検索にヒットしない場合でも、既定で「雑学 BGM」系のキーワードを付与して YouTube Audio Library を検索するため、雑学/解説動画向けの汎用 BGM が自動で補われます。
+- ライセンス表記などを冒頭のウォーターマークで表示したい場合は YAML で `watermark.text`（任意で `duration_sec`, `font`, `fontsize`, `fill`, `stroke_color`, `stroke_width`）を設定してください。画像 `watermark.file` と併用すると、画像に加えてテキストも重ねて描画されます。
 
 YouTube Audio Library から BGM を自動取得するには、Google Cloud Console で API キーを発行し `YOUTUBE_API_KEY` 環境変数を設定してください（例: `export YOUTUBE_API_KEY=xxxx`）。`yt-dlp` と FFmpeg が導入済みであれば、最初の実行時に `assets/bgm/youtube/` へ mp3 がダウンロードされます。
 

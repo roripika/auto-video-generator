@@ -3,14 +3,26 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import yaml
 
-from src.models import ScriptModel, Section, ThemeTemplate
+from pathlib import Path
+
+from src.models import BGMAudio, ScriptModel, Section, TextStyle, ThemeTemplate
 
 from .llm import LLMError, OpenAIChatClient
 from .skeletons import build_script_skeleton
+
+
+def _normalize_linebreaks(value: str | None) -> str:
+    if not value:
+        return ""
+    normalized = value.replace("\\r\\n", "\n").replace("\\r", "\n")
+    # allow literal backslash-n sequences from LLM output to become actual newlines
+    normalized = normalized.replace("\\n", "\n")
+    return normalized
 
 
 class ScriptGenerationError(RuntimeError):
@@ -53,29 +65,68 @@ class ScriptFromBriefGenerator:
                 "bg": "背景候補の説明 or URL or ファイル名（例: pexels「夕景」）",
                 "bg_fit": "cover",
             },
+            "bgm": {
+                "file": "BGM候補（ファイル名 or URL or ジャンルキーワード例: 背景: lo-fi クイズ風）",
+                "volume_db": -10,
+                "ducking_db": -16,
+                "license": "必要な場合、出典/ライセンス表記のメモ（例: Pixabay License, CC-BY 表記など）",
+            },
             "text_style": {
                 "font": "Noto Sans JP",
                 "fontsize": 60,
                 "fill": "#FFFFFF",
-                "position": {"x": "center", "y": "bottom-180"},
+                "position": {"x": "center", "y": "center"},
                 "stroke": {"color": "#000000", "width": 4},
             },
             "sections": [
                 {
                     "id": "section-1",
                     "rank": "1",
-                    "on_screen_text": "セクションタイトル",
+                    "on_screen_text": "セクションタイトル＋要点キーワード（例: 第1位：○○ / 要約: ○○が驚き）",
+                    "on_screen_segments": [
+                        {
+                            "text": "第1位：",
+                            "style": {"fontsize": 64, "fill": "#FFE65A", "stroke": {"color": "#000000", "width": 6}},
+                        },
+                        {
+                            "text": "営業職\\n年収は約500万円",
+                            "style": {"fontsize": 60, "fill": "#FFFFFF", "stroke": {"color": "#000000", "width": 6}},
+                        },
+                    ],
                     "hook": "視聴者の悩みを喚起する一言",
                     "evidence": "信頼できる根拠文",
                     "demo": "手順やビフォーアフター",
                     "bridge": "次の話題への繋ぎ",
                     "cta": "試してコメントを促す",
                     "narration": "ナレーション全文（60〜80文字目安）",
-                    "effects": ["zoom_in", "blur"],
+                    "effects": ["zoom_in"],
                     "bg_keyword": "背景に使いたいキーワード（例: 名古屋 夜景 工場）",
+                    "overlays": [
+                        {
+                            "file": "商品の参考画像ファイル名やURL",
+                            "position": {"x": "right-120", "y": "center"},
+                            "scale": 0.6,
+                            "opacity": 0.95,
+                        }
+                    ],
                 }
             ],
             "global_cta": cta,
+            "outro": {
+                "on_screen_text": "まとめ / CTA",
+                "on_screen_segments": [
+                    {
+                        "text": "まとめ",
+                        "style": {"fontsize": 58, "fill": "#FFE65A", "stroke": {"color": "#000000", "width": 4}},
+                    },
+                    {
+                        "text": "最後に強調したい一言",
+                        "style": {"fontsize": 54, "fill": "#FFFFFF", "stroke": {"color": "#000000", "width": 4}},
+                    },
+                ],
+                "narration": "締めのナレーション（50〜80文字）",
+                "cta": "コメントやチャンネル登録を促す一言",
+            },
         }
 
         system_msg = (
@@ -87,9 +138,17 @@ class ScriptFromBriefGenerator:
             " blur / grayscale / vignette / contrast / zoom_in / zoom_out / zoom_pan_left / zoom_pan_right。"
             "背景 (video.bg) に関して、雰囲気に合うキーワードや具体的素材案があれば bg フィールドに記入してください"
             "（例: pexelsの夕景動画、統計ならシンプルなチャート背景など）。"
-            "テロップ位置(font/position)の提案があれば text_style に反映してください。"
+            "テロップ位置(font/position)やフォント/色の提案があれば text_style に反映してください（読みやすさ重視の色・位置を選んでください）。"
             "各セクションには背景素材検索に使えるキーワード (bg_keyword) を書いてください。"
             "最初に導入セクションを1本入れ、動画全体で何を紹介するかを1〜2文で説明してください。"
+            "特にテロップは『中央寄せのヒーロータイトル型』を推奨します。on_screen_textには改行(\\n)を含めて3〜4行に分割し、1行15〜18文字以内を目安に中央に積み重ねてください。"
+            "text_style.positionはデフォルトで x:center, y:center（または center-100 など少し上）を選び、背景の主要被写体を避けるレイアウトを提案してください。"
+            "BGM も提案してください。具体的なファイル名/URLがなければ、ジャンルやムードキーワード（例: lo-fi クイズ系, 軽快トリビア）を `bgm.file` に書いてください。音量(dB)やナレーション時の ducking(dB)を指定し、必要ならライセンス表記メモを `bgm.license` に書いてください。"
+            "Blur（ぼかし）はテキスト可読性を著しく落とすため、基本は付けないでください。どうしても必要な場合は弱い強度で部分的に限定してください。"
+            "テロップはセグメント分割して、強調したいキーワードごとに `on_screen_segments` で色・サイズ・フォントを変えてください。各セクションは最低2つのセグメント（例: タグ/見出し＋要約）を含め、改行を使って中央に積み重ねてください。"
+            "商品の参考画像や図版がある場合は、セクションに `overlays` を入れてください。file（パス/URL）、position（x,y）、必要なら scale/opacity を指定してください。"
+            "最後に「まとめ/締め」のアウトロセクション (`outro`) を必ず書き、スクリーンテキストとナレーションを用意してください。"
+            "\\n\\n重要: 出力は必ず有効な JSON オブジェクト1つのみで、前後に説明文やコードフェンス（```）を入れないでください。"
         )
 
         user_msg = f"""
@@ -114,7 +173,7 @@ CTA: {cta}
 - `cta` は視聴者にコメント/高評価/登録を促す短い文。
 - `effects` は必要に応じて上記リストから選び配列で記載する（無い場合は空配列可）。
 - `video.bg` には背景キーワード/素材案を入れる（URL/ファイル名/キーワードいずれでも可）。
-- `text_style` はフォント/サイズ/色/位置の推奨値があれば記載する。
+- `text_style` はフォント/サイズ/色/位置の推奨値があれば記載する（読みやすさと強調を考慮）。
 - `bg_keyword` は各セクションの背景検索用キーワードを書いてください。
 
 出力フォーマットの例:
@@ -138,7 +197,19 @@ CTA: {cta}
                     return data
             except Exception:
                 continue
+        self._log_invalid_response(text)
         raise ScriptGenerationError("LLM response could not be parsed as JSON/YAML.")
+
+    def _log_invalid_response(self, text: str) -> None:
+        try:
+            log_dir = Path("logs/llm_errors")
+            log_dir.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            log_path = log_dir / f"invalid_llm_response_{timestamp}.txt"
+            log_path.write_text(text)
+            print(f"[WARN] LLM response saved to {log_path}")
+        except Exception as err:  # pragma: no cover
+            print(f"[WARN] Failed to log LLM response: {err}")
 
     def _apply_to_script(self, script: ScriptModel, payload: Dict[str, Any]) -> ScriptModel:
         sections_data = payload.get("sections")
@@ -174,6 +245,90 @@ CTA: {cta}
                 if "y" in pos:
                     script.text_style.position.y = pos["y"]
 
+        bgm_payload = payload.get("bgm")
+        if isinstance(bgm_payload, dict):
+            file_val = bgm_payload.get("file")
+            if file_val:
+                script.bgm = script.bgm or BGMAudio(file=file_val)
+                script.bgm.file = file_val
+                if bgm_payload.get("volume_db") is not None:
+                    script.bgm.volume_db = float(bgm_payload["volume_db"])
+                if bgm_payload.get("ducking_db") is not None:
+                    script.bgm.ducking_db = float(bgm_payload["ducking_db"])
+                script.bgm.license = bgm_payload.get("license") or script.bgm.license
+            elif not file_val:
+                script.bgm = None
+
+        base_style = script.text_style
+
+        def base_segment_style() -> dict:
+            return {
+                "font": base_style.font,
+                "fontsize": base_style.fontsize,
+                "fill": base_style.fill,
+                "stroke": {"color": base_style.stroke.color, "width": base_style.stroke.width},
+                "position": {"x": base_style.position.x, "y": base_style.position.y},
+                "animation": base_style.animation,
+            }
+
+        def build_fallback_segments(text: str) -> List[dict]:
+            clean = _normalize_linebreaks(text).strip()
+            if not clean:
+                clean = script.title or "注目ポイント"
+            parts = [p.strip() for p in re.split(r"[\n]+", clean) if p.strip()]
+            if len(parts) < 2 and "：" in clean:
+                prefix, rest = clean.split("：", 1)
+                parts = [f"{prefix.strip()}：", rest.strip()]
+            if len(parts) < 2 and len(clean) > 12:
+                midpoint = len(clean) // 2
+                parts = [clean[:midpoint].strip(), clean[midpoint:].strip()]
+                parts = [p for p in parts if p]
+            if len(parts) < 2 and clean:
+                parts = [clean, clean]
+            segments: List[dict] = []
+            for idx, chunk in enumerate(parts[:4]):
+                style = base_segment_style()
+                if idx == 0:
+                    style["fontsize"] = (base_style.fontsize or 60) + 6
+                    style["fill"] = "#FFE65A"
+                segments.append({"text": chunk, "style": style})
+            return segments
+
+        def merge_style(style_payload: dict | None) -> dict:
+            style = base_segment_style()
+            payload = style_payload or {}
+            for key in ["font", "fontsize", "fill", "animation"]:
+                if key in payload and payload[key] is not None:
+                    style[key] = payload[key]
+            if "stroke" in payload and isinstance(payload["stroke"], dict):
+                stroke = payload["stroke"]
+                if "color" in stroke and stroke["color"]:
+                    style["stroke"]["color"] = stroke["color"]
+                if "width" in stroke and stroke["width"] is not None:
+                    style["stroke"]["width"] = stroke["width"]
+            if "position" in payload and isinstance(payload["position"], dict):
+                pos = payload["position"]
+                if "x" in pos:
+                    style["position"]["x"] = pos["x"]
+                if "y" in pos:
+                    style["position"]["y"] = pos["y"]
+            return style
+
+        def normalize_segments(raw_segments: List[dict], fallback_text: str) -> List[dict]:
+            normalized: List[dict] = []
+            for seg in raw_segments:
+                if not isinstance(seg, dict):
+                    continue
+                text_value = _normalize_linebreaks(seg.get("text"))
+                text_value = text_value.strip()
+                if not text_value:
+                    continue
+                style_data = merge_style(seg.get("style"))
+                normalized.append({"text": text_value, "style": style_data})
+            if len(normalized) < 2:
+                normalized = build_fallback_segments(fallback_text)
+            return normalized
+
         new_sections: List[Section] = []
 
         # 導入セクション追加
@@ -199,17 +354,24 @@ CTA: {cta}
             if not isinstance(section_payload, dict):
                 continue
             section_id = section_payload.get("id") or f"rank-{idx}"
-            on_screen = section_payload.get("on_screen_text") or section_payload.get("title")
+            on_screen = _normalize_linebreaks(
+                section_payload.get("on_screen_text") or section_payload.get("title")
+            )
             if not on_screen:
                 on_screen = f"第{idx}位：注目ハック"
             narration = section_payload.get("narration") or section_payload.get("script")
             if not narration:
                 raise ScriptGenerationError(f"Section {section_id} is missing 'narration'.")
 
+            segments_payload = section_payload.get("on_screen_segments") or []
+            segments_clean = normalize_segments(segments_payload, on_screen)
+
             new_sections.append(
                 Section(
                     id=section_id,
                     on_screen_text=on_screen,
+                    on_screen_segments=segments_clean,
+                    overlays=section_payload.get("overlays") or [],
                     narration=narration,
                     duration_hint_sec=None,
                     bg_keyword=section_payload.get("bg_keyword"),
@@ -219,6 +381,29 @@ CTA: {cta}
                     bridge=section_payload.get("bridge"),
                     cta=section_payload.get("cta"),
                     effects=section_payload.get("effects") or [],
+                )
+            )
+
+        outro_payload = payload.get("outro")
+        if isinstance(outro_payload, dict):
+            outro_text = outro_payload.get("on_screen_text") or "まとめ"
+            outro_narration = outro_payload.get("narration") or summary or global_cta or "最後にもう一度注目ポイントを振り返りましょう。"
+            outro_segments = normalize_segments(outro_payload.get("on_screen_segments") or [], outro_text)
+            new_sections.append(
+                Section(
+                    id="outro",
+                    on_screen_text=outro_text,
+                    on_screen_segments=outro_segments,
+                    overlays=outro_payload.get("overlays") or [],
+                    narration=outro_narration,
+                    duration_hint_sec=None,
+                    bg_keyword=outro_payload.get("bg_keyword"),
+                    hook=None,
+                    evidence=None,
+                    demo=None,
+                    bridge=None,
+                    cta=outro_payload.get("cta") or global_cta,
+                    effects=outro_payload.get("effects") or [],
                 )
             )
 

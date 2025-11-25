@@ -1,0 +1,30 @@
+id: trivia_stats
+label: 雑学・統計ネタランキング
+genre: 統計
+description: 統計・データにまつわる意外な事実や数字をランキング形式で紹介するテンプレート
+hook_phrases:
+  - "数字でわかる意外な真実"
+  - "知ると行動が変わるデータ"
+  - "常識を覆す統計"
+ranking:
+  min_items: 5
+  max_items: 7
+  default_items: 5
+cta:
+  primary: "コメントで気になったデータやあなたの予想を教えてください！"
+  secondary: "保存してあとで周りにシェア"
+script_guidelines:
+  - "出典と年次を必ず明記する"
+  - "グラフ言及や比較対象を入れて理解を助ける"
+  - "数字の意味する行動提案を一言入れる"
+thumbnail_keywords:
+  - "データが示す真実"
+  - "意外な数字"
+  - "統計で裏付け"
+thumbnail:
+  background_color: "#0F1B2C"
+  overlay_opacity: 0.5
+  primary_color: "#6FE7DD"
+  accent_color: "#FFC857"
+  stroke_color: "#04070C"
+  stroke_width: 6

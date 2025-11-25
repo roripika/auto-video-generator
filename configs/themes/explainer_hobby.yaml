@@ -1,0 +1,30 @@
+id: explainer_hobby
+label: ネタ解説・趣味の深掘り
+genre: 趣味
+description: 趣味ジャンルの背景知識やトッププレイヤーのコツを解説するテンプレート
+hook_phrases:
+  - "なぜこの道具が選ばれる？"
+  - "上達が早い人の共通点"
+  - "初心者が避けたい落とし穴"
+ranking:
+  min_items: 4
+  max_items: 6
+  default_items: 4
+cta:
+  primary: "コメントで愛用ギアや練習法を共有してください！"
+  secondary: "チャンネル登録で次の深掘りもチェック"
+script_guidelines:
+  - "歴史・仕組み・ギア・練習ステップをまとめる"
+  - "難しい用語は短い比喩で補足"
+  - "費用・時間・場所の目安を添える"
+thumbnail_keywords:
+  - "初心者必見"
+  - "深掘り解説"
+  - "上達のヒント"
+thumbnail:
+  background_color: "#0f141c"
+  overlay_opacity: 0.5
+  primary_color: "#F6D258"
+  accent_color: "#65D0FF"
+  stroke_color: "#03060a"
+  stroke_width: 6

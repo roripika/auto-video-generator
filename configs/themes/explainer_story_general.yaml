@@ -1,0 +1,31 @@
+id: explainer_story_general
+label: ネタ解説・ストーリー型
+genre: 汎用解説
+layout: story
+description: ランキングにせず、導入から展開・具体例・まとめの流れで解説するテンプレート
+hook_phrases:
+  - "なぜ○○はこうなった？"
+  - "意外と知られていない○○の理由"
+  - "3分で分かる○○"
+ranking:
+  min_items: 3
+  max_items: 5
+  default_items: 4
+cta:
+  primary: "コメントで感想や疑問を教えてください！"
+  secondary: "チャンネル登録で次の解説もチェック"
+script_guidelines:
+  - "構成は 導入→背景→具体例→まとめ/CTA"
+  - "専門用語は短い比喩で説明する"
+  - "視聴者が取れる一歩を提示する"
+thumbnail_keywords:
+  - "3分で分かる"
+  - "解説"
+  - "保存版"
+thumbnail:
+  background_color: "#0f1927"
+  overlay_opacity: 0.5
+  primary_color: "#FFD447"
+  accent_color: "#48C0FF"
+  stroke_color: "#050910"
+  stroke_width: 6

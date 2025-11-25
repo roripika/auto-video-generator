@@ -1,0 +1,30 @@
+id: expose_region
+label: 暴露・地域の裏側
+genre: 地域
+description: 地域ニュースやローカル業界の裏話を暴露トーンで伝えるテンプレート
+hook_phrases:
+  - "誰も言わない○○の真実"
+  - "地元で囁かれる噂の正体"
+  - "数字で見る裏側"
+ranking:
+  min_items: 4
+  max_items: 6
+  default_items: 4
+cta:
+  primary: "コメントであなたの知る裏話を教えてください（守秘範囲に注意）"
+  secondary: "高評価・登録で続報をフォロー"
+script_guidelines:
+  - "事実/データと意見を分けて提示する"
+  - "情報源や根拠を簡潔に示す"
+  - "過度な断定を避け、視聴者に考えさせる問いかけを入れる"
+thumbnail_keywords:
+  - "暴露"
+  - "裏側"
+  - "初公開"
+thumbnail:
+  background_color: "#0b0b0f"
+  overlay_opacity: 0.55
+  primary_color: "#FF4D6D"
+  accent_color: "#FFD166"
+  stroke_color: "#040404"
+  stroke_width: 6

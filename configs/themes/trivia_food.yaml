@@ -1,0 +1,30 @@
+id: trivia_food
+label: 雑学・食ネタランキング
+genre: 食事
+description: 食文化や食品の意外な豆知識をランキング形式で紹介するテンプレート
+hook_phrases:
+  - "実は○○に入っている"
+  - "知らないと損する調理ワザ"
+  - "専門家が教える裏話"
+ranking:
+  min_items: 5
+  max_items: 7
+  default_items: 5
+cta:
+  primary: "コメントで試してみたいレシピを教えてください！"
+  secondary: "保存してあとで作ろう"
+script_guidelines:
+  - "科学的根拠や栄養ネタを1行入れる"
+  - "手順は3ステップ以内の簡潔さを意識"
+  - "買える場所・代替食材を付けて実践性を上げる"
+thumbnail_keywords:
+  - "知らないと損"
+  - "保存版"
+  - "家でできる"
+thumbnail:
+  background_color: "#2B0B0B"
+  overlay_opacity: 0.45
+  primary_color: "#FFB347"
+  accent_color: "#FF5C5C"
+  stroke_color: "#120404"
+  stroke_width: 6

@@ -45,14 +45,34 @@ class TextStyle(BaseModel):
     animation: Optional[str] = None
 
 
+class OnScreenSegment(BaseModel):
+    text: str
+    style: Optional[TextStyle] = None
+
+
+class OverlayImage(BaseModel):
+    file: str
+    position: TextPosition = TextPosition(x="center", y="center")
+    scale: Optional[float] = None  # 1.0 = 100%, 倍率指定
+    opacity: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+
+
 class BGMAudio(BaseModel):
     file: str
     volume_db: float = -16
     ducking_db: float = -6
+    license: Optional[str] = None
 
 
 class Watermark(BaseModel):
-    file: str
+    file: Optional[str] = None
+    text: Optional[str] = None
+    font: str = "Noto Sans JP"
+    fontsize: int = 32
+    fill: str = "#FFFFFF"
+    stroke_color: str = "#000000"
+    stroke_width: int = 2
+    duration_sec: float = 8.0
     position: TextPosition = TextPosition(x="right-40", y="top+40")
 
 
@@ -65,6 +85,8 @@ class CreditsConfig(BaseModel):
 class Section(BaseModel):
     id: str
     on_screen_text: str
+    on_screen_segments: List[OnScreenSegment] = Field(default_factory=list)
+    overlays: List[OverlayImage] = Field(default_factory=list)
     narration: str
     duration_hint_sec: Optional[float] = None
     bg: Optional[str] = None

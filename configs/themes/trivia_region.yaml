@@ -1,0 +1,30 @@
+id: trivia_region
+label: 雑学・地域ネタランキング
+genre: 地域
+description: ご当地の豆知識や文化をランキング形式で紹介するテンプレート
+hook_phrases:
+  - "地元民だけが知る秘密"
+  - "ガイドブックに載らない○○"
+  - "知ったら出かけたくなる"
+ranking:
+  min_items: 5
+  max_items: 7
+  default_items: 5
+cta:
+  primary: "コメントであなたの地域ネタも教えてください！"
+  secondary: "チャンネル登録で次のご当地ネタもチェック"
+script_guidelines:
+  - "文化・歴史・食・スポットをバランスよく配置する"
+  - "由来やデータを一行入れて信頼感を出す"
+  - "行き方や一言メモを入れて行動喚起を促す"
+thumbnail_keywords:
+  - "地元民必見"
+  - "知らないと損"
+  - "ご当地"
+thumbnail:
+  background_color: "#062235"
+  overlay_opacity: 0.5
+  primary_color: "#FFE65A"
+  accent_color: "#3AC1FF"
+  stroke_color: "#020b12"
+  stroke_width: 6

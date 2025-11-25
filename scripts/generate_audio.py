@@ -2,30 +2,15 @@
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
+import sys
 
-import yaml
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.audio.voicevox_client import VoicevoxClient, VoicevoxError
-from src.models import ConfigModel, ScriptModel
-
-
-def load_script(path: Path) -> ScriptModel:
-    with path.open("r", encoding="utf-8") as fh:
-        data = yaml.safe_load(fh)
-    return ScriptModel(**data)
-
-
-def load_config(path: Path | None) -> ConfigModel:
-    if path is None:
-        return ConfigModel()
-    text = path.read_text(encoding="utf-8")
-    if path.suffix.lower() in {".yaml", ".yml"}:
-        raw = yaml.safe_load(text)
-    else:
-        raw = json.loads(text)
-    return ConfigModel(**raw)
+from src.script_io import load_config, load_script
 
 
 def main() -> None:

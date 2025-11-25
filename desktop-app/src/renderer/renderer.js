@@ -25,6 +25,12 @@
   const textPosXInput = document.getElementById('textPosXInput');
   const textPosYInput = document.getElementById('textPosYInput');
   const textAnimationInput = document.getElementById('textAnimationInput');
+  const bgmFileInput = document.getElementById('bgmFileInput');
+  const bgmBrowseBtn = document.getElementById('bgmBrowseBtn');
+  const bgmClearBtn = document.getElementById('bgmClearBtn');
+  const bgmVolumeInput = document.getElementById('bgmVolumeInput');
+  const bgmDuckingInput = document.getElementById('bgmDuckingInput');
+  const bgmLicenseInput = document.getElementById('bgmLicenseInput');
   const audioGenerateBtn = document.getElementById('audioGenerateBtn');
   const audioClearBtn = document.getElementById('audioClearBtn');
   const timelineRefreshBtn = document.getElementById('timelineRefreshBtn');
@@ -39,21 +45,10 @@
   statusBadge.className = 'status';
   document.querySelector('.app-header').appendChild(statusBadge);
 
-  const settingsModal = document.getElementById('settingsModal');
-  const settingsProviderSelect = document.getElementById('settingsProvider');
-  const settingsApiKeyInput = document.getElementById('settingsApiKey');
-  const settingsBaseUrlInput = document.getElementById('settingsBaseUrl');
-  const settingsModelInput = document.getElementById('settingsModel');
-  const settingsProviderOrder = document.getElementById('settingsProviderOrder');
-  const providerHintEl = document.getElementById('providerHint');
   const settingsBtn = document.getElementById('settingsBtn');
-  const settingsCancelBtn = document.getElementById('settingsCancelBtn');
-  const settingsCloseBtn = document.getElementById('settingsCloseBtn');
-  const settingsSaveBtn = document.getElementById('settingsSaveBtn');
-  const settingsPexelsKeyInput = document.getElementById('settingsPexelsKey');
-  const settingsPixabayKeyInput = document.getElementById('settingsPixabayKey');
-  const settingsStabilityKeyInput = document.getElementById('settingsStabilityKey');
-  const settingsMaxResults = document.getElementById('settingsMaxResults');
+  let modalProviderConfigs = {};
+  let modalActiveProvider = 'openai';
+  const saveScriptAsBtn = document.getElementById('saveScriptAsBtn');
 
   const PROVIDER_PRESETS = {
     openai: {
@@ -99,11 +94,203 @@
     ],
   };
 
+  const normalizeLinebreaks = (value = '') =>
+    value.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\\n/g, '\n');
+
+  const summarizeOnScreenText = (value = '') =>
+    normalizeLinebreaks(value)
+      .split('\n')
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .join(' / ');
+
   const VOICEVOX_SPEAKERS = [
     { id: 13, name: '青山龍星 (ノーマル)' },
     { id: 3, name: 'ずんだもん(ノーマル)' },
     { id: 1, name: '四国めたん(ノーマル)' },
   ];
+
+  function ensureSegmentStyle(segment) {
+    if (!segment.style) segment.style = {};
+    return segment.style;
+  }
+
+  function cleanupSegmentStyle(segment) {
+    if (!segment.style) return;
+    if (segment.style.stroke && Object.keys(segment.style.stroke).length === 0) {
+      delete segment.style.stroke;
+    }
+    if (segment.style.position && Object.keys(segment.style.position).length === 0) {
+      delete segment.style.position;
+    }
+    if (Object.keys(segment.style).length === 0) {
+      delete segment.style;
+    }
+  }
+
+  function updateSegmentStyleField(segment, key, rawValue, parser) {
+    const value = rawValue === '' ? undefined : parser ? parser(rawValue) : rawValue;
+    if (value === undefined || value === null || value === '' || Number.isNaN(value)) {
+      if (segment.style) {
+        delete segment.style[key];
+        cleanupSegmentStyle(segment);
+      }
+      return;
+    }
+    ensureSegmentStyle(segment)[key] = value;
+  }
+
+  function updateSegmentStrokeField(segment, key, rawValue, parser) {
+    const value = rawValue === '' ? undefined : parser ? parser(rawValue) : rawValue;
+    if (value === undefined || value === null || value === '' || Number.isNaN(value)) {
+      if (segment.style?.stroke) {
+        delete segment.style.stroke[key];
+        if (Object.keys(segment.style.stroke).length === 0) {
+          delete segment.style.stroke;
+          cleanupSegmentStyle(segment);
+        }
+      }
+      return;
+    }
+    const style = ensureSegmentStyle(segment);
+    if (!style.stroke) style.stroke = {};
+    style.stroke[key] = value;
+  }
+
+  function updateSegmentPositionField(segment, axis, rawValue) {
+    const trimmed = rawValue.trim();
+    if (!trimmed) {
+      if (segment.style?.position) {
+        delete segment.style.position[axis];
+        if (Object.keys(segment.style.position).length === 0) {
+          delete segment.style.position;
+          cleanupSegmentStyle(segment);
+        }
+      }
+      return;
+    }
+    const style = ensureSegmentStyle(segment);
+    if (!style.position) style.position = {};
+    const num = Number(trimmed);
+    style.position[axis] = Number.isNaN(num) ? trimmed : num;
+  }
+
+  function createLabeledInput(label, type, value, onChange, options = {}) {
+    const field = document.createElement('label');
+    field.className = 'form-field-inline';
+    const title = document.createElement('span');
+    title.textContent = label;
+    const input = document.createElement('input');
+    input.type = type;
+    if (options.placeholder) input.placeholder = options.placeholder;
+    if (options.step) input.step = options.step;
+    if (options.min !== undefined) input.min = options.min;
+    if (options.max !== undefined) input.max = options.max;
+    if (options.fullWidth) input.style.width = '100%';
+    input.value = value ?? '';
+    input.addEventListener('input', (event) => onChange(event.target.value));
+    field.appendChild(title);
+    field.appendChild(input);
+    return field;
+  }
+
+  function ensureBgmConfig() {
+    if (!state.script) return null;
+    const defaults = { file: '', volume_db: -10, ducking_db: -16 };
+    if (!state.script.bgm) {
+      state.script.bgm = { ...defaults, license: '' };
+    } else {
+      if (typeof state.script.bgm.volume_db !== 'number') {
+        state.script.bgm.volume_db = defaults.volume_db;
+      }
+      if (typeof state.script.bgm.ducking_db !== 'number') {
+        state.script.bgm.ducking_db = defaults.ducking_db;
+      }
+    }
+    return state.script.bgm;
+  }
+
+  function renderBgmForm() {
+    const bgm = state.script?.bgm || null;
+    if (bgmFileInput) {
+      bgmFileInput.value = bgm?.file || '';
+    }
+    if (bgmVolumeInput) {
+      bgmVolumeInput.value = bgm?.volume_db ?? '';
+    }
+    if (bgmDuckingInput) {
+      bgmDuckingInput.value = bgm?.ducking_db ?? '';
+    }
+    if (bgmLicenseInput) {
+      bgmLicenseInput.value = bgm?.license || '';
+    }
+    if (bgmClearBtn) {
+      bgmClearBtn.disabled = !bgm;
+    }
+  }
+
+  function handleBgmFileInput(event) {
+    if (!state.script) return;
+    const value = event.target.value.trim();
+    const bgm = ensureBgmConfig();
+    if (!bgm) return;
+    bgm.file = value;
+    renderYaml();
+  }
+
+  async function handleBrowseBgm() {
+    if (!window.api.chooseBgmFile) return;
+    try {
+      const result = await window.api.chooseBgmFile();
+      if (result && result.path && !result.canceled) {
+        const bgm = ensureBgmConfig();
+        if (bgm) {
+          bgm.file = result.path;
+          renderBgmForm();
+          renderYaml();
+          setStatus(`BGMを ${result.path} に設定しました。`);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      setStatus('BGMファイルの選択に失敗しました。');
+    }
+  }
+
+  function handleClearBgm() {
+    if (!state.script) return;
+    state.script.bgm = null;
+    renderBgmForm();
+    renderYaml();
+    setStatus('BGM設定をクリアしました。');
+  }
+
+  function handleBgmVolumeInput(event) {
+    if (!state.script) return;
+    const bgm = ensureBgmConfig();
+    if (!bgm) return;
+    const value = Number(event.target.value);
+    bgm.volume_db = Number.isNaN(value) ? -10 : value;
+    renderYaml();
+  }
+
+  function handleBgmDuckingInput(event) {
+    if (!state.script) return;
+    const bgm = ensureBgmConfig();
+    if (!bgm) return;
+    const value = Number(event.target.value);
+    bgm.ducking_db = Number.isNaN(value) ? -16 : value;
+    renderYaml();
+  }
+
+  function handleBgmLicenseInput(event) {
+    if (!state.script) return;
+    const bgm = ensureBgmConfig();
+    if (!bgm) return;
+    const value = event.target.value.trim();
+    bgm.license = value || null;
+    renderYaml();
+  }
 
   function estimateDurationFromText(script) {
     if (!script || !Array.isArray(script.sections)) return 0;
@@ -174,6 +361,14 @@
   async function handleSaveScript() {
     if (!state.script) return;
     const result = await window.api.saveScript({ path: state.filePath, script: state.script });
+    if (result.canceled) return;
+    state.filePath = result.path;
+    setStatus(`${result.path} に保存しました。`);
+  }
+
+  async function handleSaveScriptAs() {
+    if (!state.script) return;
+    const result = await window.api.saveScript({ path: null, script: state.script });
     if (result.canceled) return;
     state.filePath = result.path;
     setStatus(`${result.path} に保存しました。`);
@@ -329,6 +524,7 @@
     updateBackgroundField();
     renderAssetResults();
     syncTextStyleForm();
+    renderBgmForm();
     renderVoiceSpeaker();
     renderTimelineSummary();
   }
@@ -372,7 +568,8 @@
     if (!state.script) return;
     state.script.sections.forEach((section, index) => {
       const li = document.createElement('li');
-      li.textContent = `${index + 1}. ${section.on_screen_text || section.id}`;
+      const display = summarizeOnScreenText(section.on_screen_text || section.id || '');
+      li.textContent = `${index + 1}. ${display || section.id}`;
       if (index === state.selectedIndex) {
         li.classList.add('active');
       }
@@ -412,9 +609,13 @@
       const fieldLabel = document.createElement('label');
       fieldLabel.textContent = label;
       const textarea = document.createElement('textarea');
-      textarea.value = section[key] || '';
+      const normalizedValue = normalizeLinebreaks(section[key] || '');
+      textarea.value = normalizedValue;
+      if (section[key] !== normalizedValue) {
+        section[key] = normalizedValue;
+      }
       textarea.addEventListener('input', (event) => {
-        section[key] = event.target.value;
+        section[key] = normalizeLinebreaks(event.target.value || '');
         renderSectionList();
         renderSummary();
         renderYaml();
@@ -479,6 +680,309 @@
     bgWrapper.appendChild(clearBtn);
     bgWrapper.appendChild(preview);
     sectionFormEl.appendChild(bgWrapper);
+
+    // Segment editor
+    if (!Array.isArray(section.on_screen_segments)) {
+      section.on_screen_segments = [];
+    }
+    const segmentsPanel = document.createElement('div');
+    segmentsPanel.className = 'segment-list';
+    const segmentsHeader = document.createElement('div');
+    segmentsHeader.className = 'panel-subtitle';
+    segmentsHeader.textContent = 'テロップセグメント（行ごとにフォントや色を調整）';
+    const segmentsHint = document.createElement('p');
+    segmentsHint.className = 'field-hint';
+    segmentsHint.textContent = '空の場合は上記「テロップ」欄の文字がそのまま使われます。';
+    segmentsPanel.appendChild(segmentsHeader);
+    segmentsPanel.appendChild(segmentsHint);
+
+    section.on_screen_segments.forEach((seg, segIndex) => {
+      if (!seg || typeof seg !== 'object') {
+        section.on_screen_segments[segIndex] = { text: '', style: {} };
+      }
+      const segWrapper = document.createElement('div');
+      segWrapper.className = 'segment-item';
+      const segTitle = document.createElement('div');
+      segTitle.textContent = `セグメント ${segIndex + 1}`;
+      segTitle.style.fontWeight = '600';
+      segWrapper.appendChild(segTitle);
+
+      const segTextarea = document.createElement('textarea');
+      segTextarea.value = seg.text || '';
+      segTextarea.placeholder = '例: 第1位：\n驚きの○○';
+      segTextarea.addEventListener('input', (e) => {
+        seg.text = e.target.value;
+        renderSectionList();
+        renderYaml();
+      });
+      segWrapper.appendChild(segTextarea);
+
+      const styleRow = document.createElement('div');
+      styleRow.className = 'segment-style-row';
+      styleRow.appendChild(
+        createLabeledInput(
+          'フォントサイズ',
+          'number',
+          seg.style?.fontsize ?? '',
+          (val) => {
+            updateSegmentStyleField(seg, 'fontsize', val, (v) => Number(v));
+            renderYaml();
+          },
+          { min: 20, step: 2 }
+        )
+      );
+      styleRow.appendChild(
+        createLabeledInput(
+          '文字色',
+          'text',
+          seg.style?.fill ?? '',
+          (val) => {
+            updateSegmentStyleField(seg, 'fill', val.trim());
+            renderYaml();
+          },
+          { placeholder: '#RRGGBB' }
+        )
+      );
+      styleRow.appendChild(
+        createLabeledInput(
+          '枠線色',
+          'text',
+          seg.style?.stroke?.color ?? '',
+          (val) => {
+            updateSegmentStrokeField(seg, 'color', val.trim());
+            renderYaml();
+          },
+          { placeholder: '#000000' }
+        )
+      );
+      styleRow.appendChild(
+        createLabeledInput(
+          '枠線幅',
+          'number',
+          seg.style?.stroke?.width ?? '',
+          (val) => {
+            updateSegmentStrokeField(seg, 'width', val, (v) => Number(v));
+            renderYaml();
+          },
+          { min: 0, step: 1 }
+        )
+      );
+      styleRow.appendChild(
+        createLabeledInput(
+          'X 位置',
+          'text',
+          seg.style?.position?.x ?? '',
+          (val) => {
+            updateSegmentPositionField(seg, 'x', val);
+            renderYaml();
+          },
+          { placeholder: 'center / left+80 / 320' }
+        )
+      );
+      styleRow.appendChild(
+        createLabeledInput(
+          'Y 位置',
+          'text',
+          seg.style?.position?.y ?? '',
+          (val) => {
+            updateSegmentPositionField(seg, 'y', val);
+            renderYaml();
+          },
+          { placeholder: 'center / top+120 / 400' }
+        )
+      );
+      segWrapper.appendChild(styleRow);
+
+      const segActions = document.createElement('div');
+      segActions.style.display = 'flex';
+      segActions.style.justifyContent = 'space-between';
+      segActions.style.marginTop = '8px';
+      const removeSegBtn = document.createElement('button');
+      removeSegBtn.className = 'ghost';
+      removeSegBtn.textContent = 'このセグメントを削除';
+      removeSegBtn.addEventListener('click', () => {
+        section.on_screen_segments.splice(segIndex, 1);
+        renderSectionForm();
+        renderYaml();
+      });
+      segActions.appendChild(removeSegBtn);
+      segWrapper.appendChild(segActions);
+      segmentsPanel.appendChild(segWrapper);
+    });
+
+    const addSegmentBtn = document.createElement('button');
+    addSegmentBtn.className = 'ghost';
+    addSegmentBtn.textContent = 'セグメントを追加';
+    addSegmentBtn.addEventListener('click', () => {
+      const base = state.script?.text_style || {};
+      section.on_screen_segments.push({
+        text: '',
+        style: {
+          fontsize: base.fontsize || 60,
+          fill: base.fill || '#FFFFFF',
+          stroke: { color: base.stroke?.color || '#000000', width: base.stroke?.width ?? 4 },
+          position: { ...(base.position || { x: 'center', y: 'center' }) },
+        },
+      });
+      renderSectionForm();
+      renderYaml();
+    });
+    segmentsPanel.appendChild(addSegmentBtn);
+    sectionFormEl.appendChild(segmentsPanel);
+
+    // Overlay editor
+    if (!Array.isArray(section.overlays)) {
+      section.overlays = [];
+    }
+    const overlayPanel = document.createElement('div');
+    overlayPanel.className = 'overlay-list';
+    const overlayHeader = document.createElement('div');
+    overlayHeader.className = 'panel-subtitle';
+    overlayHeader.textContent = '前景オーバーレイ（商品写真やアイコンなど）';
+    const overlayHint = document.createElement('p');
+    overlayHint.className = 'field-hint';
+    overlayHint.textContent = '画像ファイルやURLを指定すると背景上に重ねられます。';
+    overlayPanel.appendChild(overlayHeader);
+    overlayPanel.appendChild(overlayHint);
+
+    section.overlays.forEach((overlay, overlayIndex) => {
+      const overlayWrapper = document.createElement('div');
+      overlayWrapper.className = 'overlay-item';
+      const overlayTitle = document.createElement('div');
+      overlayTitle.textContent = `オーバーレイ ${overlayIndex + 1}`;
+      overlayTitle.style.fontWeight = '600';
+      overlayWrapper.appendChild(overlayTitle);
+
+      const fileField = createLabeledInput(
+        'ファイル/URL',
+        'text',
+        overlay.file || '',
+        (val) => {
+          overlay.file = val.trim();
+          renderYaml();
+        },
+        { fullWidth: true, placeholder: 'assets/overlay.png または https://...' }
+      );
+      overlayWrapper.appendChild(fileField);
+
+      const overlayRow = document.createElement('div');
+      overlayRow.className = 'overlay-row';
+      overlayRow.appendChild(
+        createLabeledInput(
+          'X 位置',
+          'text',
+          overlay.position?.x ?? '',
+          (val) => {
+            const trimmed = val.trim();
+            if (!trimmed) {
+              if (overlay.position) {
+                delete overlay.position.x;
+                if (!overlay.position.x && !overlay.position.y) {
+                  delete overlay.position;
+                }
+              }
+            } else {
+              const num = Number(trimmed);
+              if (!overlay.position) overlay.position = {};
+              overlay.position.x = Number.isNaN(num) ? trimmed : num;
+            }
+            renderYaml();
+          },
+          { placeholder: 'center / right-120 / 400' }
+        )
+      );
+      overlayRow.appendChild(
+        createLabeledInput(
+          'Y 位置',
+          'text',
+          overlay.position?.y ?? '',
+          (val) => {
+            const trimmed = val.trim();
+            if (!trimmed) {
+              if (overlay.position) {
+                delete overlay.position.y;
+                if (!overlay.position.x && !overlay.position.y) {
+                  delete overlay.position;
+                }
+              }
+            } else {
+              const num = Number(trimmed);
+              if (!overlay.position) overlay.position = {};
+              overlay.position.y = Number.isNaN(num) ? trimmed : num;
+            }
+            renderYaml();
+          },
+          { placeholder: 'center / top+80 / 420' }
+        )
+      );
+      overlayRow.appendChild(
+        createLabeledInput(
+          '縮尺',
+          'number',
+          overlay.scale ?? '',
+          (val) => {
+            const num = Number(val);
+            if (!val) {
+              delete overlay.scale;
+            } else if (!Number.isNaN(num)) {
+              overlay.scale = num;
+            }
+            renderYaml();
+          },
+          { step: 0.1, min: 0.1 }
+        )
+      );
+      overlayRow.appendChild(
+        createLabeledInput(
+          '不透明度(0-1)',
+          'number',
+          overlay.opacity ?? '',
+          (val) => {
+            const num = Number(val);
+            if (!val) {
+              delete overlay.opacity;
+            } else if (!Number.isNaN(num)) {
+              overlay.opacity = Math.min(1, Math.max(0, num));
+            }
+            renderYaml();
+          },
+          { step: 0.05, min: 0, max: 1 }
+        )
+      );
+      overlayWrapper.appendChild(overlayRow);
+
+      const overlayActions = document.createElement('div');
+      overlayActions.style.display = 'flex';
+      overlayActions.style.justifyContent = 'space-between';
+      overlayActions.style.marginTop = '8px';
+      const removeOverlayBtn = document.createElement('button');
+      removeOverlayBtn.className = 'ghost';
+      removeOverlayBtn.textContent = 'このオーバーレイを削除';
+      removeOverlayBtn.addEventListener('click', () => {
+        section.overlays.splice(overlayIndex, 1);
+        renderSectionForm();
+        renderYaml();
+      });
+      overlayActions.appendChild(removeOverlayBtn);
+      overlayWrapper.appendChild(overlayActions);
+      overlayPanel.appendChild(overlayWrapper);
+    });
+
+    const addOverlayBtn = document.createElement('button');
+    addOverlayBtn.className = 'ghost';
+    addOverlayBtn.textContent = 'オーバーレイを追加';
+    addOverlayBtn.addEventListener('click', () => {
+      section.overlays.push({
+        file: '',
+        position: { x: 'right-120', y: 'center' },
+        scale: 0.6,
+        opacity: 1,
+      });
+      renderSectionForm();
+      renderYaml();
+    });
+    overlayPanel.appendChild(addOverlayBtn);
+    sectionFormEl.appendChild(overlayPanel);
   }
 
   function renderSummary() {
@@ -520,6 +1024,8 @@
       demo: '',
       bridge: '',
       cta: '',
+      on_screen_segments: [],
+      overlays: [],
     });
     state.selectedIndex = state.script.sections.length - 1;
     render();
@@ -807,6 +1313,7 @@
       console.error('Failed to load settings', err);
       state.settings = null;
     }
+    bindExternalLinks();
   }
 
   async function loadVoicevoxSpeakers() {
@@ -854,30 +1361,52 @@
     });
   }
 
+  function cloneProviderConfigs(source) {
+    return JSON.parse(JSON.stringify(source || {}));
+  }
+
+  function ensureModalProviderConfig(providerKey) {
+    if (!modalProviderConfigs[providerKey]) {
+      modalProviderConfigs[providerKey] = {
+        apiKey: '',
+        baseUrl: PROVIDER_PRESETS[providerKey]?.baseUrl || '',
+        model: PROVIDER_PRESETS[providerKey]?.model || '',
+      };
+    }
+    return modalProviderConfigs[providerKey];
+  }
+
+  function applyProviderFields(providerKey) {
+    const config = ensureModalProviderConfig(providerKey);
+    settingsApiKeyInput.value = config.apiKey || '';
+    settingsBaseUrlInput.value = config.baseUrl || PROVIDER_PRESETS[providerKey]?.baseUrl || '';
+    settingsModelInput.value = config.model || PROVIDER_PRESETS[providerKey]?.model || '';
+  }
+
+  function persistCurrentProviderFields() {
+    const config = ensureModalProviderConfig(modalActiveProvider);
+    config.apiKey = settingsApiKeyInput.value.trim();
+    config.baseUrl = settingsBaseUrlInput.value.trim() || config.baseUrl;
+    config.model = settingsModelInput.value.trim() || config.model;
+  }
+
   function openSettingsModal() {
     populateProviderOptions();
-    const settings = state.settings || {
-      provider: 'openai',
-      apiKey: '',
-      baseUrl: PROVIDER_PRESETS.openai.baseUrl,
-      model: PROVIDER_PRESETS.openai.model,
-      pexelsApiKey: '',
-      pixabayApiKey: '',
-      stabilityApiKey: '',
-      assetProviderOrder: 'pexels,pixabay',
-      assetMaxResults: 5,
-    };
-    settingsProviderSelect.value = settings.provider in PROVIDER_PRESETS ? settings.provider : 'openai';
-    settingsApiKeyInput.value = settings.apiKey || '';
-    settingsBaseUrlInput.value = settings.baseUrl || PROVIDER_PRESETS[settingsProviderSelect.value].baseUrl;
-    settingsModelInput.value = settings.model || PROVIDER_PRESETS[settingsProviderSelect.value].model;
+    const settings = state.settings || {};
+    modalProviderConfigs = cloneProviderConfigs(settings.providers);
+    modalActiveProvider =
+      settings.activeProvider && PROVIDER_PRESETS[settings.activeProvider]
+        ? settings.activeProvider
+        : 'openai';
+    settingsProviderSelect.value = modalActiveProvider;
+    applyProviderFields(modalActiveProvider);
     if (settingsProviderOrder) settingsProviderOrder.value = settings.assetProviderOrder || 'pexels,pixabay';
     if (settingsMaxResults) settingsMaxResults.value = settings.assetMaxResults || 5;
     if (settingsPexelsKeyInput) settingsPexelsKeyInput.value = settings.pexelsApiKey || '';
     if (settingsPixabayKeyInput) settingsPixabayKeyInput.value = settings.pixabayApiKey || '';
     if (settingsStabilityKeyInput) settingsStabilityKeyInput.value = settings.stabilityApiKey || '';
-    settingsBaseUrlInput.dataset.dirty = 'false';
-    settingsModelInput.dataset.dirty = 'false';
+    if (settingsYoutubeKeyInput) settingsYoutubeKeyInput.value = settings.youtubeApiKey || '';
+    if (settingsBgmDirInput) settingsBgmDirInput.value = settings.bgmDirectory || 'assets/bgm';
     updateProviderHint();
     settingsModal.classList.remove('hidden');
   }
@@ -887,34 +1416,28 @@
   }
 
   function handleProviderChanged() {
-    const preset = PROVIDER_PRESETS[settingsProviderSelect.value];
-    if (!preset) {
+    persistCurrentProviderFields();
+    const nextKey = settingsProviderSelect.value;
+    if (!PROVIDER_PRESETS[nextKey]) {
       return;
     }
-    if (settingsBaseUrlInput.dataset.dirty !== 'true') {
-      settingsBaseUrlInput.value = preset.baseUrl;
-    }
-    if (settingsModelInput.dataset.dirty !== 'true') {
-      settingsModelInput.value = preset.model;
-    }
+    modalActiveProvider = nextKey;
+    applyProviderFields(modalActiveProvider);
     updateProviderHint();
   }
 
-  function markDirty(event) {
-    event.target.dataset.dirty = 'true';
-  }
-
   async function handleSettingsSave() {
+    persistCurrentProviderFields();
     const payload = {
-      provider: settingsProviderSelect.value,
-      apiKey: settingsApiKeyInput.value.trim(),
-      baseUrl: settingsBaseUrlInput.value.trim(),
-      model: settingsModelInput.value.trim(),
+      activeProvider: modalActiveProvider,
+      providers: modalProviderConfigs,
       assetProviderOrder: settingsProviderOrder?.value || 'pexels,pixabay',
       assetMaxResults: Number(settingsMaxResults?.value) || 5,
       pexelsApiKey: settingsPexelsKeyInput?.value?.trim() || '',
       pixabayApiKey: settingsPixabayKeyInput?.value?.trim() || '',
       stabilityApiKey: settingsStabilityKeyInput?.value?.trim() || '',
+      youtubeApiKey: settingsYoutubeKeyInput?.value?.trim() || '',
+      bgmDirectory: settingsBgmDirInput?.value?.trim() || '',
     };
     try {
       const saved = await window.api.saveSettings(payload);
@@ -947,6 +1470,9 @@
   document.getElementById('newScriptBtn').addEventListener('click', createScriptFromTheme);
   document.getElementById('openScriptBtn').addEventListener('click', handleOpenScript);
   document.getElementById('saveScriptBtn').addEventListener('click', handleSaveScript);
+  if (saveScriptAsBtn) {
+    saveScriptAsBtn.addEventListener('click', handleSaveScriptAs);
+  }
   document.getElementById('addSectionBtn').addEventListener('click', addSection);
   themeSelect.addEventListener('change', () => setStatus(`選択テーマ: ${themeSelect.value}`));
   if (aiGenerateBtn) {
@@ -1018,14 +1544,22 @@
   if (textPosXInput) textPosXInput.addEventListener('input', (e) => handlePositionChange('x', e.target.value));
   if (textPosYInput) textPosYInput.addEventListener('input', (e) => handlePositionChange('y', e.target.value));
   if (textAnimationInput) textAnimationInput.addEventListener('input', handleAnimationChange);
-  if (settingsBtn) settingsBtn.addEventListener('click', openSettingsModal);
-  if (settingsCancelBtn) settingsCancelBtn.addEventListener('click', closeSettingsModal);
-  if (settingsCloseBtn) settingsCloseBtn.addEventListener('click', closeSettingsModal);
-  if (settingsSaveBtn) settingsSaveBtn.addEventListener('click', handleSettingsSave);
-  if (settingsModal) settingsModal.addEventListener('click', handleModalClick);
-  if (settingsProviderSelect) settingsProviderSelect.addEventListener('change', handleProviderChanged);
-  if (settingsBaseUrlInput) settingsBaseUrlInput.addEventListener('input', markDirty);
-  if (settingsModelInput) settingsModelInput.addEventListener('input', markDirty);
+  if (bgmFileInput) bgmFileInput.addEventListener('input', handleBgmFileInput);
+  if (bgmBrowseBtn) bgmBrowseBtn.addEventListener('click', handleBrowseBgm);
+  if (bgmClearBtn) bgmClearBtn.addEventListener('click', handleClearBgm);
+  if (bgmVolumeInput) bgmVolumeInput.addEventListener('input', handleBgmVolumeInput);
+  if (bgmDuckingInput) bgmDuckingInput.addEventListener('input', handleBgmDuckingInput);
+  if (bgmLicenseInput) bgmLicenseInput.addEventListener('input', handleBgmLicenseInput);
+  if (settingsBtn && window.api.openSettingsWindow) {
+    settingsBtn.addEventListener('click', async () => {
+      try {
+        await window.api.openSettingsWindow();
+      } catch (err) {
+        console.error('Failed to open settings window', err);
+        setStatus('設定ウインドウの起動に失敗しました。');
+      }
+    });
+  }
   if (yamlEditBtn) yamlEditBtn.addEventListener('click', enterYamlEditMode);
   if (yamlApplyBtn) yamlApplyBtn.addEventListener('click', handleYamlApply);
   if (infoButtons && infoButtons.length) {
@@ -1036,6 +1570,7 @@
           brief: 'AI台本生成: ブリーフとセクション数を入力し、テーマを選んで「AIで生成」を押すと YAML 台本を生成します。生成後は必要に応じて編集してから保存してください。',
           assets: '背景素材: 背景ファイルを指定するか、「別ウインドウで検索」で Pexels/Pixabay/AI から素材を取得できます。結果から全体またはセクションごとに適用可能です。',
           textstyle: 'テキストスタイル: フォント、サイズ、色、縁取り、位置、アニメーションを設定し、テロップ表示に反映します。YAMLにも保存されます。',
+          bgm: 'BGM設定: ローカル音源やURLを指定し、音量(dB)とナレーション時のducking量、ライセンス表記メモを入力すると、生成される動画に自動で合成されます。',
         };
         const msg = messages[key] || 'この機能の説明は準備中です。';
         setStatus(msg);
@@ -1059,3 +1594,16 @@
     });
   }
 })();
+  function bindExternalLinks(root = document) {
+    root.querySelectorAll('[data-external-link="true"]').forEach((link) => {
+      if (link.dataset.boundExternal === 'true') return;
+      link.dataset.boundExternal = 'true';
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        const href = link.getAttribute('href');
+        if (href && window.api?.openExternalLink) {
+          window.api.openExternalLink(href);
+        }
+      });
+    });
+  }

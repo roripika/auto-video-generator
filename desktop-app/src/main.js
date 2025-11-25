@@ -8,11 +8,40 @@ const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const THEMES_DIR = path.join(PROJECT_ROOT, 'configs', 'themes');
 const SETTINGS_DIR = path.join(PROJECT_ROOT, 'settings');
 const SETTINGS_FILE = path.join(SETTINGS_DIR, 'ai_settings.json');
+const PROVIDER_PRESETS = {
+  openai: {
+    label: 'OpenAI',
+    baseUrl: 'https://api.openai.com/v1',
+    model: 'gpt-4o-mini',
+  },
+  anthropic: {
+    label: 'Anthropic Claude',
+    baseUrl: 'https://api.anthropic.com/v1/messages',
+    model: 'claude-3-sonnet-20240229',
+  },
+  gemini: {
+    label: 'Google Gemini',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+    model: 'gemini-2.5-flash',
+  },
+};
+const PROVIDER_KEYS = Object.keys(PROVIDER_PRESETS);
+
+function cloneProviderDefaults() {
+  const defaults = {};
+  PROVIDER_KEYS.forEach((key) => {
+    defaults[key] = {
+      apiKey: '',
+      baseUrl: PROVIDER_PRESETS[key].baseUrl,
+      model: PROVIDER_PRESETS[key].model,
+    };
+  });
+  return defaults;
+}
+
 const DEFAULT_AI_SETTINGS = {
-  provider: 'openai',
-  apiKey: '',
-  baseUrl: 'https://api.openai.com/v1',
-  model: 'gpt-4o-mini',
+  activeProvider: 'openai',
+  providers: cloneProviderDefaults(),
   pexelsApiKey: '',
   pixabayApiKey: '',
   stabilityApiKey: '',
@@ -320,6 +349,13 @@ function registerHandlers() {
     await shell.openPath(target);
     return { ok: true };
   });
+  ipcMain.handle('external:open', async (_event, url) => {
+    if (typeof url !== 'string' || !url.trim()) {
+      return { ok: false };
+    }
+    await shell.openExternal(url);
+    return { ok: true };
+  });
 
   ipcMain.on('yaml:stringify', (event, payload) => {
     try {
@@ -431,12 +467,53 @@ function buildDefaultScript(theme) {
   };
 }
 
+function sanitizeProviderConfigs(rawProviders, legacy = {}) {
+  const configs = cloneProviderDefaults();
+  PROVIDER_KEYS.forEach((key) => {
+    const source = rawProviders && rawProviders[key];
+    if (source) {
+      if (typeof source.apiKey === 'string') {
+        configs[key].apiKey = source.apiKey;
+      }
+      if (typeof source.baseUrl === 'string' && source.baseUrl.trim()) {
+        configs[key].baseUrl = source.baseUrl.trim();
+      }
+      if (typeof source.model === 'string' && source.model.trim()) {
+        configs[key].model = source.model.trim();
+      }
+    }
+  });
+  if (legacy && legacy.provider && PROVIDER_KEYS.includes(legacy.provider)) {
+    const target = configs[legacy.provider];
+    if (typeof legacy.apiKey === 'string' && legacy.apiKey) {
+      target.apiKey = legacy.apiKey;
+    }
+    if (typeof legacy.baseUrl === 'string' && legacy.baseUrl.trim()) {
+      target.baseUrl = legacy.baseUrl.trim();
+    }
+    if (typeof legacy.model === 'string' && legacy.model.trim()) {
+      target.model = legacy.model.trim();
+    }
+  }
+  return configs;
+}
+
 function sanitizeSettings(payload = {}) {
+  const legacyProvider = typeof payload.provider === 'string' ? payload.provider : undefined;
+  const activeRaw =
+    typeof payload.activeProvider === 'string'
+      ? payload.activeProvider
+      : legacyProvider || DEFAULT_AI_SETTINGS.activeProvider;
+  const activeProvider = PROVIDER_KEYS.includes(activeRaw) ? activeRaw : DEFAULT_AI_SETTINGS.activeProvider;
+
   return {
-    provider: typeof payload.provider === 'string' ? payload.provider : DEFAULT_AI_SETTINGS.provider,
-    apiKey: typeof payload.apiKey === 'string' ? payload.apiKey : '',
-    baseUrl: typeof payload.baseUrl === 'string' ? payload.baseUrl : DEFAULT_AI_SETTINGS.baseUrl,
-    model: typeof payload.model === 'string' ? payload.model : DEFAULT_AI_SETTINGS.model,
+    activeProvider,
+    providers: sanitizeProviderConfigs(payload.providers, {
+      provider: legacyProvider,
+      apiKey: payload.apiKey,
+      baseUrl: payload.baseUrl,
+      model: payload.model,
+    }),
     pexelsApiKey: typeof payload.pexelsApiKey === 'string' ? payload.pexelsApiKey : '',
     pixabayApiKey: typeof payload.pixabayApiKey === 'string' ? payload.pixabayApiKey : '',
     stabilityApiKey: typeof payload.stabilityApiKey === 'string' ? payload.stabilityApiKey : '',
@@ -460,19 +537,27 @@ function loadAISettings() {
   try {
     if (fs.existsSync(SETTINGS_FILE)) {
       const data = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
-      return { ...DEFAULT_AI_SETTINGS, ...sanitizeSettings(data) };
+      return sanitizeSettings(data);
     }
   } catch (err) {
     console.error('Failed to load AI settings, fallback to defaults.', err);
   }
-  return { ...DEFAULT_AI_SETTINGS };
+  return sanitizeSettings({});
 }
 
 function saveAISettings(payload) {
-  const merged = { ...DEFAULT_AI_SETTINGS, ...payload };
+  const mergedInput = {
+    ...currentSettings,
+    ...payload,
+    providers: {
+      ...(currentSettings?.providers || {}),
+      ...(payload.providers || {}),
+    },
+  };
+  const sanitized = sanitizeSettings(mergedInput);
   fs.mkdirSync(SETTINGS_DIR, { recursive: true });
-  fs.writeFileSync(SETTINGS_FILE, JSON.stringify(merged, null, 2), 'utf-8');
-  return merged;
+  fs.writeFileSync(SETTINGS_FILE, JSON.stringify(sanitized, null, 2), 'utf-8');
+  return sanitized;
 }
 
 function generateScriptFromBrief({ brief, themeId, sections }) {

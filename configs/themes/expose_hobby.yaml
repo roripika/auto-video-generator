@@ -1,0 +1,30 @@
+id: expose_hobby
+label: 暴露・趣味業界の裏話
+genre: 趣味
+description: 趣味・ギア・イベントの裏側やタブーを暴露調で紹介するテンプレート
+hook_phrases:
+  - "初心者が知らない業界の常識"
+  - "ベテランだけが得するワザ"
+  - "買う前に知るべき注意点"
+ranking:
+  min_items: 4
+  max_items: 6
+  default_items: 4
+cta:
+  primary: "コメントであなたの体験談や注意点を共有してください"
+  secondary: "登録で次の業界ネタもチェック"
+script_guidelines:
+  - "ステマ/宣伝を避け、中立トーンで述べる"
+  - "費用・リスク・避けるべきポイントを端的に列挙"
+  - "初心者が損しないチェックリストを入れる"
+thumbnail_keywords:
+  - "暴露"
+  - "業界の裏側"
+  - "買う前に知る"
+thumbnail:
+  background_color: "#0f0f16"
+  overlay_opacity: 0.55
+  primary_color: "#FF4D8A"
+  accent_color: "#7CF0BD"
+  stroke_color: "#04040a"
+  stroke_width: 6

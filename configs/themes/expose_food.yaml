@@ -1,0 +1,30 @@
+id: expose_food
+label: 暴露・食の裏側
+genre: 食事
+description: 食品業界・飲食店の裏話や注意点を暴露調で紹介するテンプレート
+hook_phrases:
+  - "実は○○が使われている"
+  - "プロだけが知る裏メニュー"
+  - "安全に食べるための注意"
+ranking:
+  min_items: 4
+  max_items: 6
+  default_items: 4
+cta:
+  primary: "コメントで体験談や疑問をシェアしてください"
+  secondary: "高評価で続編リクエスト"
+script_guidelines:
+  - "裏話の出典・根拠を示しつつ誇張を避ける"
+  - "リスクと対策をセットで示す"
+  - "実生活で使える具体的な行動を提示する"
+thumbnail_keywords:
+  - "暴露"
+  - "食の真実"
+  - "知らないと危ない"
+thumbnail:
+  background_color: "#200a0a"
+  overlay_opacity: 0.55
+  primary_color: "#FF6B6B"
+  accent_color: "#FFC65C"
+  stroke_color: "#0c0303"
+  stroke_width: 6

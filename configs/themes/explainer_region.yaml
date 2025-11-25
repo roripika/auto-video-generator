@@ -1,0 +1,30 @@
+id: explainer_region
+label: ネタ解説・地域ストーリー
+genre: 地域
+description: 地域の歴史やニュース、小ネタをわかりやすく解説するテンプレート
+hook_phrases:
+  - "なぜ○○はこうなった？"
+  - "地元民が知らない意外な歴史"
+  - "今さら聞けない○○の理由"
+ranking:
+  min_items: 4
+  max_items: 6
+  default_items: 4
+cta:
+  primary: "コメントであなたの街のエピソードを教えてください！"
+  secondary: "チャンネル登録で次の解説もチェック"
+script_guidelines:
+  - "背景→経緯→現在→小ネタの順で構成"
+  - "専門用語は短く噛み砕く"
+  - "現地で試せる／見に行けるアクションを提示する"
+thumbnail_keywords:
+  - "知っておきたい"
+  - "意外な歴史"
+  - "ご当地解説"
+thumbnail:
+  background_color: "#091a2d"
+  overlay_opacity: 0.5
+  primary_color: "#FFDC5E"
+  accent_color: "#43C1FF"
+  stroke_color: "#02070f"
+  stroke_width: 6

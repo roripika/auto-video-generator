@@ -21,3 +21,10 @@ thumbnail_keywords:
   - "知らないと損"
   - "保存版"
   - "○○するだけ"
+thumbnail:
+  background_color: "#080808"
+  overlay_opacity: 0.45
+  primary_color: "#FFD75E"
+  accent_color: "#FF4D91"
+  stroke_color: "#040404"
+  stroke_width: 6

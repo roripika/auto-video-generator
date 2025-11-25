@@ -1,0 +1,31 @@
+id: howto_steps_general
+label: ハウツー・ステップ解説
+genre: ハウツー
+layout: steps
+description: 手順やコツをステップ形式で紹介するテンプレート
+hook_phrases:
+  - "3ステップでできる"
+  - "初心者が失敗しがちなポイント"
+  - "今日から試せる簡単ワザ"
+ranking:
+  min_items: 3
+  max_items: 6
+  default_items: 4
+cta:
+  primary: "コメントで試した結果を教えてください！"
+  secondary: "保存してあとで実践"
+script_guidelines:
+  - "ゴール→必要なもの→手順→確認ポイント→次の一歩"
+  - "1ステップは2〜3文で簡潔に"
+  - "安全や時間の目安を添える"
+thumbnail_keywords:
+  - "簡単"
+  - "ステップ"
+  - "初心者OK"
+thumbnail:
+  background_color: "#0f141c"
+  overlay_opacity: 0.5
+  primary_color: "#FFD166"
+  accent_color: "#7BDFFF"
+  stroke_color: "#05070b"
+  stroke_width: 6

@@ -1,0 +1,30 @@
+id: expose_stats
+label: 暴露・統計が示す真実
+genre: 統計
+description: 統計やデータで見える意外な裏側を暴露調で伝えるテンプレート
+hook_phrases:
+  - "数字は嘘をつかない"
+  - "常識と違うデータ"
+  - "誰も触れない数字の裏側"
+ranking:
+  min_items: 4
+  max_items: 6
+  default_items: 4
+cta:
+  primary: "コメントであなたの見解や別データを教えてください"
+  secondary: "高評価・登録で続編をフォロー"
+script_guidelines:
+  - "出典・年次・母数を明確に記載する"
+  - "煽りすぎず、数字から導ける合理的な示唆を出す"
+  - "視聴者に考えさせる問いを最後に置く"
+thumbnail_keywords:
+  - "暴露"
+  - "数字の裏側"
+  - "データで暴く"
+thumbnail:
+  background_color: "#0a1624"
+  overlay_opacity: 0.55
+  primary_color: "#5DE0C1"
+  accent_color: "#FFCA63"
+  stroke_color: "#04070b"
+  stroke_width: 6

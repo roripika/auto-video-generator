@@ -1,0 +1,30 @@
+id: explainer_food
+label: ネタ解説・食事情
+genre: 食事
+description: 食のトレンドや食材の裏側をわかりやすく解説するテンプレート
+hook_phrases:
+  - "実は○○だった"
+  - "専門家が語る舞台裏"
+  - "知られざる作り方"
+ranking:
+  min_items: 4
+  max_items: 6
+  default_items: 4
+cta:
+  primary: "コメントで試したいメニューや気付きは？"
+  secondary: "保存して買い物メモに活用"
+script_guidelines:
+  - "導入で疑問提示→解説→具体例→安全/栄養の一言"
+  - "スーパーで見分けるポイントや代替案を入れる"
+  - "実践の一歩目を明示し行動につなげる"
+thumbnail_keywords:
+  - "知らなきゃ損"
+  - "食の裏側"
+  - "解説"
+thumbnail:
+  background_color: "#2a0f0f"
+  overlay_opacity: 0.45
+  primary_color: "#FFA857"
+  accent_color: "#FF5E7B"
+  stroke_color: "#150606"
+  stroke_width: 6
