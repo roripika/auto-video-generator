@@ -83,6 +83,7 @@
       </label>
       <div class="asset-actions" style="gap:8px; display:flex; flex-wrap:wrap;">
         <button id="bgmBrowseBtn">ファイルを選択</button>
+        <button id="bgmOpenWindowBtn" class="ghost">ライブラリから選ぶ</button>
         <button id="bgmClearBtn" class="ghost">クリア</button>
       </div>
       <div class="bgm-grid">
@@ -208,6 +209,10 @@
             <input id="settingsBgmDir" type="text" placeholder="assets/bgm" />
           </label>
           <p class="modal__hint">相対パスはプロジェクトルート（auto-video-generator）からの相対になります。</p>
+          <label>デフォルト BGM (YouTube URL または動画ID)
+            <input id="settingsYoutubeForce" type="text" placeholder="https://www.youtube.com/watch?v=..." />
+          </label>
+          <p class="modal__hint">ここに指定した動画を優先的にダウンロードして BGM として利用します。</p>
         </div>
         <div class="modal__actions">
           <button id="settingsCancelBtn">キャンセル</button>

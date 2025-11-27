@@ -1,0 +1,334 @@
+project: explainer_stats-20251127014103
+title: AIを活用している職業ランキングトップ5
+locale: ja-JP
+video:
+  width: 1920
+  height: 1080
+  fps: 30
+  bg: pexelsのオフィス風景
+  bg_fit: cover
+voice:
+  engine: voicevox
+  speaker_id: 13
+  speedScale: 1.02
+  pitchScale: 0
+  intonationScale: 1.1
+  volumeScale: 1
+  pause_msec: 150
+text_style:
+  font: Noto Sans JP
+  fontsize: 100
+  fill: "#FFFFFF"
+  stroke:
+    color: "#000000"
+    width: 4
+  position:
+    x: center
+    y: center-100
+  max_chars_per_line: 18
+  lines: 2
+  animation: null
+bgm:
+  file: lo-fi クイズ系
+  volume_db: -12
+  ducking_db: 0
+  license: Pixabay License
+watermark: null
+credits: null
+sections:
+  - id: intro
+    on_screen_text: AIを活用している職業ランキングトップ5
+    on_screen_segments: []
+    overlays: []
+    narration: AIがどの職業で活用されているかをランキング形式で紹介します。意外な職業がランクインしているかも？
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: null
+    hook: ""
+    evidence: ""
+    demo: ""
+    bridge: ""
+    cta: コメントであなたの予想や意見を教えてください！
+    effects: []
+  - id: section-5
+    on_screen_text: |-
+      第5位：
+      マーケティング職
+    on_screen_segments:
+      - text: 第5位：
+        style:
+          font: Noto Sans JP
+          fontsize: 64
+          fill: "#FFE65A"
+          stroke:
+            color: "#000000"
+            width: 6
+          position:
+            x: center
+            y: center-100
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+      - text: マーケティング職
+        style:
+          font: Noto Sans JP
+          fontsize: 60
+          fill: "#FFFFFF"
+          stroke:
+            color: "#000000"
+            width: 6
+          position:
+            x: center
+            y: center-100
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+    overlays: []
+    narration: マーケティング職ではAIがデータ解析を効率化し、ターゲット戦略を強化しています。次はもっと意外な職業がランクイン！
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: マーケティング, データ解析
+    hook: マーケティング職でAIが活用されている理由とは？
+    evidence: AIはデータ解析を効率化し、ターゲット戦略を強化します。
+    demo: AIを使ったキャンペーンの成功事例を紹介。
+    bridge: 次はもっと意外な職業がランクイン！
+    cta: あなたの職業もランクインしていますか？
+    effects:
+      - zoom_in
+  - id: section-4
+    on_screen_text: |-
+      第4位：
+      医療職
+    on_screen_segments:
+      - text: 第4位：
+        style:
+          font: Noto Sans JP
+          fontsize: 64
+          fill: "#FFE65A"
+          stroke:
+            color: "#000000"
+            width: 6
+          position:
+            x: center
+            y: center-100
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+      - text: 医療職
+        style:
+          font: Noto Sans JP
+          fontsize: 60
+          fill: "#FFFFFF"
+          stroke:
+            color: "#000000"
+            width: 6
+          position:
+            x: center
+            y: center-100
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+    overlays: []
+    narration: 医療職ではAIが診断の精度を向上させ、患者の治療をサポートしています。次はさらに驚くべき職業が登場！
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: 医療, 病院, 診断
+    hook: 医療の現場でAIがどのように活躍しているか知っていますか？
+    evidence: AIは診断の精度を向上させ、患者の治療をサポートします。
+    demo: AIによる画像診断のデモを紹介。
+    bridge: 次はさらに驚くべき職業が登場！
+    cta: 医療職の方、AIの活用を実感していますか？
+    effects:
+      - zoom_pan_right
+  - id: section-3
+    on_screen_text: |-
+      第3位：
+      金融アナリスト
+    on_screen_segments:
+      - text: 第3位：
+        style:
+          font: Noto Sans JP
+          fontsize: 64
+          fill: "#FFE65A"
+          stroke:
+            color: "#000000"
+            width: 6
+          position:
+            x: center
+            y: center-100
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+      - text: 金融アナリスト
+        style:
+          font: Noto Sans JP
+          fontsize: 60
+          fill: "#FFFFFF"
+          stroke:
+            color: "#000000"
+            width: 6
+          position:
+            x: center
+            y: center-100
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+    overlays: []
+    narration: 金融アナリストではAIが市場予測を高精度で行い、投資判断をサポートしています。次の職業はさらに身近な存在かも？
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: 金融, 投資, 市場
+    hook: 金融の世界でAIがどのように革命を起こしているか？
+    evidence: AIは市場予測を高精度で行い、投資判断をサポートします。
+    demo: AIを活用した投資戦略の事例を紹介。
+    bridge: 次の職業はさらに身近な存在かも？
+    cta: 金融業界でAIを活用している方、コメントで教えてください！
+    effects:
+      - zoom_out
+  - id: section-2
+    on_screen_text: |-
+      第2位：
+      製造業エンジニア
+    on_screen_segments:
+      - text: 第2位：
+        style:
+          font: Noto Sans JP
+          fontsize: 64
+          fill: "#FFE65A"
+          stroke:
+            color: "#000000"
+            width: 6
+          position:
+            x: center
+            y: center-100
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+      - text: 製造業エンジニア
+        style:
+          font: Noto Sans JP
+          fontsize: 60
+          fill: "#FFFFFF"
+          stroke:
+            color: "#000000"
+            width: 6
+          position:
+            x: center
+            y: center-100
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+    overlays: []
+    narration: 製造業エンジニアではAIが生産ラインの最適化や品質管理を自動化しています。そして、いよいよ第1位の発表です！
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: 製造業, 工場, 生産ライン
+    hook: 製造業でAIが生産性をどう向上させているか？
+    evidence: AIは生産ラインの最適化や品質管理を自動化します。
+    demo: AIを使った生産ラインの効率化事例を紹介。
+    bridge: そして、いよいよ第1位の発表です！
+    cta: 製造業の方、AIの効果を実感していますか？
+    effects:
+      - contrast
+  - id: section-1
+    on_screen_text: |-
+      第1位：
+      ITエンジニア
+    on_screen_segments:
+      - text: 第1位：
+        style:
+          font: Noto Sans JP
+          fontsize: 64
+          fill: "#FFE65A"
+          stroke:
+            color: "#000000"
+            width: 6
+          position:
+            x: center
+            y: center-100
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+      - text: ITエンジニア
+        style:
+          font: Noto Sans JP
+          fontsize: 60
+          fill: "#FFFFFF"
+          stroke:
+            color: "#000000"
+            width: 6
+          position:
+            x: center
+            y: center-100
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+    overlays: []
+    narration: ITエンジニアではAIが開発プロセスを効率化し、革新的なサービスを提供しています。AIの活用で今後も進化が期待されます。
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: IT, テクノロジー, 開発
+    hook: IT業界でAIがどれほど重要な役割を果たしているか？
+    evidence: AIは開発プロセスを効率化し、革新的なサービスを提供します。
+    demo: AIを使ったアプリ開発の成功事例を紹介。
+    bridge: AIの活用で今後も進化が期待されます。
+    cta: IT業界の方、AIの活用に関する意見を聞かせてください！
+    effects:
+      - zoom_pan_left
+  - id: outro
+    on_screen_text: まとめ\nAIの活用は広がっています
+    on_screen_segments:
+      - text: まとめ
+        style:
+          font: Noto Sans JP
+          fontsize: 58
+          fill: "#FFE65A"
+          stroke:
+            color: "#000000"
+            width: 4
+          position:
+            x: center
+            y: center-100
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+      - text: AIの活用は広がっています
+        style:
+          font: Noto Sans JP
+          fontsize: 54
+          fill: "#FFFFFF"
+          stroke:
+            color: "#000000"
+            width: 4
+          position:
+            x: center
+            y: center-100
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+    overlays: []
+    narration: AIの活用は様々な職業で広がっています。今後の進化が楽しみですね。コメントやチャンネル登録をお忘れなく！
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: null
+    hook: null
+    evidence: null
+    demo: null
+    bridge: null
+    cta: コメントやチャンネル登録を促す一言
+    effects: []
+output:
+  filename: explainer_stats-20251127014103.mp4
+  srt: true
+  thumbnail_time_sec: 1
+upload_prep:
+  title: ネタ解説・統計で読む○○で覚えておきたいベスト5
+  tags:
+    - 統計
+    - ランキング
+    - ライフハック
+  desc: |-
+    AIがどの職業で活用されているかをランキング形式で紹介します。意外な職業がランクインしているかも？
+
+    ネタ解説・統計で読む○○テーマの自動生成スクリプト（2025-11-27 作成）
+    コメントであなたの予想や意見を教えてください！

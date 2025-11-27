@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <title>BGM ライブラリ</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      body {
+        padding: 12px;
+      }
+      .bgm-header {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-bottom: 8px;
+      }
+      .bgm-directory {
+        font-size: 0.9rem;
+        color: #666;
+      }
+      .bgm-results li {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+      }
+      .bgm-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        font-size: 0.85rem;
+        color: #555;
+      }
+      .bgm-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      audio {
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>BGM ライブラリ</h2>
+    <div class="bgm-header">
+      <form id="bgmSearchForm" class="asset-fetcher" style="margin: 0;">
+        <input id="bgmKeyword" type="text" placeholder="ファイル名やキーワードで検索" />
+        <button type="submit" id="bgmSearchBtn">検索</button>
+      </form>
+      <div id="bgmDirectoryLabel" class="bgm-directory"></div>
+    </div>
+    <ul id="bgmResults" class="bgm-results"></ul>
+    <script src="bgm.js"></script>
+  </body>
+</html>

@@ -1,0 +1,127 @@
+project: explainer_stats-20251119114136
+title: 愛知県の平均年収ランキング2025
+locale: ja-JP
+video:
+  width: 1920
+  height: 1080
+  fps: 30
+  bg: pexels「名古屋 夜景」
+  bg_fit: cover
+voice:
+  engine: voicevox
+  speaker_id: 13
+  speedScale: 1.02
+  pitchScale: 0
+  intonationScale: 1.1
+  volumeScale: 1
+  pause_msec: 150
+text_style:
+  font: Noto Sans JP
+  fontsize: 60
+  fill: "#FFFFFF"
+  stroke:
+    color: "#000000"
+    width: 4
+  position:
+    x: center
+    y: bottom-180
+  max_chars_per_line: 18
+  lines: 2
+  animation: null
+bgm: null
+watermark: null
+credits: null
+sections:
+  - id: intro
+    on_screen_text: 愛知県の平均年収ランキング2025
+    narration: 愛知県での平均年収の高い職業をランキング形式で解説します。意外なデータを通じて、地域の特徴を明らかにします。
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: null
+    hook: null
+    evidence: null
+    demo: null
+    bridge: null
+    cta: コメントであなたの予想や意見を教えてください！
+    effects: []
+  - id: section-1
+    on_screen_text: "第5位：営業職 / 要約: 年収は約500万円"
+    narration: 愛知県の営業職の平均年収は約500万円。意外にも低いと感じる方もいるでしょう。
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: 営業職 年収 グラフ
+    hook: 営業職の年収が意外に低いことをご存知ですか？
+    evidence: 愛知県の営業職の平均年収は約500万円です。
+    demo: 営業職の仕事内容や年収の変動を示すグラフを表示。
+    bridge: 次は、さらに高い年収の職業を見ていきましょう。
+    cta: この職業についてどう思いますか？コメントしてみてください！
+    effects:
+      - zoom_in
+      - blur
+  - id: section-2
+    on_screen_text: "第4位：製造業 / 要約: 年収は約550万円"
+    narration: 愛知県の製造業の平均年収は約550万円。安定した職業として人気です。
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: 製造業 年収 データ
+    hook: 製造業の年収はどうなっているのでしょうか？
+    evidence: 製造業の平均年収は約550万円です。
+    demo: 製造業の成長と年収の関係を示すデータを表示。
+    bridge: 次は、さらに高い職業に移ります。
+    cta: 製造業についての意見を聞かせてください！
+    effects:
+      - zoom_pan_left
+  - id: section-3
+    on_screen_text: "第3位：医療職 / 要約: 年収は約600万円"
+    narration: 愛知県の医療職の平均年収は約600万円。専門性が求められる職業です。
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: 医療職 年収 グラフ
+    hook: 医療職の年収は高いとされていますが、実際は？
+    evidence: 医療職の平均年収は約600万円です。
+    demo: 医療職の仕事内容や年収の変動を示すグラフを表示。
+    bridge: 次は、さらに高い年収の職業を見ていきましょう。
+    cta: 医療職についての感想をコメントしてください！
+    effects:
+      - contrast
+  - id: section-4
+    on_screen_text: "第2位：ITエンジニア / 要約: 年収は約700万円"
+    narration: 愛知県のITエンジニアの平均年収は約700万円。需要が高まっています。
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: ITエンジニア 年収 データ
+    hook: ITエンジニアの年収は意外に高いとされています。
+    evidence: 愛知県のITエンジニアの平均年収は約700万円です。
+    demo: IT業界の成長と年収の関係を示すデータを表示。
+    bridge: さて、最後の職業は何でしょうか？
+    cta: ITエンジニアについての意見を教えてください！
+    effects:
+      - zoom_pan_right
+  - id: section-5
+    on_screen_text: "第1位：経営職 / 要約: 年収は約800万円"
+    narration: 愛知県の経営職の平均年収は約800万円。高い責任が求められます。
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: 経営職 年収 データ
+    hook: 経営職の年収は驚きの数字です！
+    evidence: 経営職の平均年収は約800万円です。
+    demo: 経営職の役割と年収の変動を示すデータを表示。
+    bridge: これで愛知県の年収ランキングは終了です。
+    cta: あなたの予想は当たっていましたか？コメントを！
+    effects:
+      - zoom_out
+output:
+  filename: explainer_stats-20251119114136.mp4
+  srt: true
+  thumbnail_time_sec: 1
+upload_prep:
+  title: ネタ解説・統計で読む○○で覚えておきたいベスト5
+  tags:
+    - 統計
+    - ランキング
+    - ライフハック
+  desc: |-
+    愛知県での平均年収の高い職業をランキング形式で解説します。意外なデータを通じて、地域の特徴を明らかにします。
+
+    ネタ解説・統計で読む○○テーマの自動生成スクリプト（2025-11-19 作成）
+    コメントであなたの予想や意見を教えてください！

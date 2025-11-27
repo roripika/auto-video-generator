@@ -59,10 +59,12 @@ const TMP_DIR = path.join(PROJECT_ROOT, 'tmp');
 const UI_SCRIPT_PATH = path.join(TMP_DIR, 'ui_script.yaml');
 const AUDIO_CACHE_DIR = path.join(PROJECT_ROOT, 'work', 'audio');
 const OUTPUTS_DIR = path.join(PROJECT_ROOT, 'outputs', 'rendered');
+const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg', '.aiff', '.aif', '.wma']);
 
 let currentSettings = loadAISettings();
 let mainWindowRef = null;
 let assetWindow = null;
+let bgmWindow = null;
 let settingsWindow = null;
 
 function suggestScriptFilename(script) {
@@ -141,6 +143,33 @@ function registerHandlers() {
   ipcMain.on('asset-window:apply-bg', (_event, payload) => {
     if (mainWindowRef && !mainWindowRef.isDestroyed()) {
       mainWindowRef.webContents.send('asset:selected', payload);
+    }
+  });
+  ipcMain.handle('bgm-window:open', () => {
+    if (bgmWindow && !bgmWindow.isDestroyed()) {
+      bgmWindow.focus();
+      return { ok: true };
+    }
+    bgmWindow = new BrowserWindow({
+      width: 760,
+      height: 640,
+      title: 'BGM ライブラリ',
+      parent: mainWindowRef || undefined,
+      webPreferences: {
+        preload: path.join(__dirname, 'preload_bgm.js'),
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    });
+    bgmWindow.on('closed', () => {
+      bgmWindow = null;
+    });
+    bgmWindow.loadFile(path.join(__dirname, 'renderer', 'bgm.html'));
+    return { ok: true };
+  });
+  ipcMain.on('bgm-window:apply', (_event, payload) => {
+    if (mainWindowRef && !mainWindowRef.isDestroyed()) {
+      mainWindowRef.webContents.send('bgm:selected', payload);
     }
   });
 
@@ -243,6 +272,32 @@ function registerHandlers() {
       args.push('--disable-ai');
     }
     return runPythonJson(args, '背景素材の取得に失敗しました。');
+  });
+  ipcMain.handle('bgm:list', (_event, payload) => {
+    const keyword = (payload?.keyword || '').trim().toLowerCase();
+    const directory =
+      (payload?.directory && payload.directory.trim()) ||
+      currentSettings.bgmDirectory ||
+      DEFAULT_AI_SETTINGS.bgmDirectory;
+    const { resolvedDirectory, items } = collectBgmFiles(directory);
+    const filtered = !keyword
+      ? items
+      : items.filter((item) => {
+          const target = (item.relativePath || item.name || '').toLowerCase();
+          return target.includes(keyword);
+        });
+    filtered.sort((a, b) => {
+      const left = (a.relativePath || a.name || '').toLowerCase();
+      const right = (b.relativePath || b.name || '').toLowerCase();
+      if (left < right) return -1;
+      if (left > right) return 1;
+      return 0;
+    });
+    return {
+      directory,
+      resolvedDirectory,
+      items: filtered,
+    };
   });
   ipcMain.handle('background:choose-file', async () => {
     const result = await dialog.showOpenDialog({
@@ -518,6 +573,10 @@ function sanitizeSettings(payload = {}) {
     pixabayApiKey: typeof payload.pixabayApiKey === 'string' ? payload.pixabayApiKey : '',
     stabilityApiKey: typeof payload.stabilityApiKey === 'string' ? payload.stabilityApiKey : '',
     youtubeApiKey: typeof payload.youtubeApiKey === 'string' ? payload.youtubeApiKey : '',
+    youtubeForceVideo:
+      typeof payload.youtubeForceVideo === 'string' && payload.youtubeForceVideo.trim()
+        ? payload.youtubeForceVideo.trim()
+        : '',
     bgmDirectory:
       typeof payload.bgmDirectory === 'string' && payload.bgmDirectory.trim()
         ? payload.bgmDirectory.trim()
@@ -662,6 +721,61 @@ function runPythonText(args, friendlyError) {
       resolve({ ok: true, stdout: stdout.trim(), stderr: stderr.trim() });
     });
   });
+}
+
+function resolveBgmDirectory(dir) {
+  if (dir && path.isAbsolute(dir)) {
+    return dir;
+  }
+  if (dir && dir.trim()) {
+    return path.join(PROJECT_ROOT, dir.trim());
+  }
+  return path.join(PROJECT_ROOT, DEFAULT_AI_SETTINGS.bgmDirectory);
+}
+
+function collectBgmFiles(directory) {
+  const resolvedDirectory = resolveBgmDirectory(directory);
+  const items = [];
+  if (!fs.existsSync(resolvedDirectory)) {
+    return { resolvedDirectory, items };
+  }
+  const walk = (target) => {
+    let entries;
+    try {
+      entries = fs.readdirSync(target, { withFileTypes: true });
+    } catch (err) {
+      console.warn('Failed to read BGM directory entry', target, err);
+      return;
+    }
+    entries.forEach((entry) => {
+      const entryPath = path.join(target, entry.name);
+      if (entry.isDirectory()) {
+        walk(entryPath);
+        return;
+      }
+      if (!entry.isFile()) {
+        return;
+      }
+      const ext = path.extname(entry.name).toLowerCase();
+      if (!AUDIO_EXTENSIONS.has(ext)) {
+        return;
+      }
+      let size = 0;
+      try {
+        size = fs.statSync(entryPath).size;
+      } catch (err) {
+        console.warn('Failed to stat BGM file', entryPath, err);
+      }
+      items.push({
+        name: entry.name,
+        path: entryPath,
+        relativePath: path.relative(PROJECT_ROOT, entryPath),
+        size,
+      });
+    });
+  };
+  walk(resolvedDirectory);
+  return { resolvedDirectory, items };
 }
 
 function saveTempScript(script) {

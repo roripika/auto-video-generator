@@ -1,0 +1,419 @@
+project: explainer_stats-20251122090147
+title: 数字が語る真実！AIを最も活用している職業ランキングTOP5
+locale: ja-JP
+video:
+  width: 1920
+  height: 1080
+  fps: 30
+  bg: 抽象的なデータビジュアライゼーション、デジタル回路の映像
+  bg_fit: cover
+voice:
+  engine: voicevox
+  speaker_id: 13
+  speedScale: 1.02
+  pitchScale: 0
+  intonationScale: 1.1
+  volumeScale: 1
+  pause_msec: 150
+text_style:
+  font: Noto Sans JP
+  fontsize: 64
+  fill: "#FFFFFF"
+  stroke:
+    color: "#000000"
+    width: 5
+  position:
+    x: center
+    y: center-80
+  max_chars_per_line: 18
+  lines: 2
+  animation: null
+bgm:
+  file: 軽快なテクノポップ, サイバーパンク風BGM
+  volume_db: -12
+  ducking_db: -18
+  license: Artlist, Epidemic Soundなどの商用ライセンス音源を想定
+watermark: null
+credits: null
+sections:
+  - id: intro
+    on_screen_text: 数字が語る真実！AIを最も活用している職業ランキングTOP5
+    on_screen_segments: []
+    overlays: []
+    narration: AIの導入が進む現代社会で、実際にAIを最も活用しているのはどの職業なのか？最新の統計データを基に、意外な事実をランキング形式で解説します。
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: null
+    hook: null
+    evidence: null
+    demo: null
+    bridge: null
+    cta: コメントであなたの予想や意見を教えてください！
+    effects: []
+  - id: intro
+    on_screen_text: |-
+      あなたの仕事は
+      AIに奪われる？
+      それとも使いこなす側？
+    on_screen_segments:
+      - text: あなたの仕事は
+        style:
+          font: Noto Sans JP
+          fontsize: 60
+          fill: "#FFFFFF"
+          stroke:
+            color: "#000000"
+            width: 5
+          position:
+            x: center
+            y: center-80
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+      - text: AIに奪われる？
+        style:
+          font: Noto Sans JP
+          fontsize: 72
+          fill: "#FF5733"
+          stroke:
+            color: "#000000"
+            width: 5
+          position:
+            x: center
+            y: center-80
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+      - text: それとも
+        style:
+          font: Noto Sans JP
+          fontsize: 60
+          fill: "#FFFFFF"
+          stroke:
+            color: "#000000"
+            width: 5
+          position:
+            x: center
+            y: center-80
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+      - text: 使いこなす側？
+        style:
+          font: Noto Sans JP
+          fontsize: 72
+          fill: "#33FF57"
+          stroke:
+            color: "#000000"
+            width: 5
+          position:
+            x: center
+            y: center-80
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+    overlays: []
+    narration: AIが急速に普及する現代。「仕事が奪われる」という不安の声も聞かれますが、実際にはAIを強力な武器として活用している職業が増えています。今回は、最新データを基にAIを最も活用している職業をランキング形式でご紹介します！
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: AI, 人工知能, 未来都市, サイバーパンク
+    hook: null
+    evidence: null
+    demo: null
+    bridge: null
+    cta: null
+    effects:
+      - zoom_in
+  - id: section-1
+    on_screen_text: |-
+      第5位：法律専門家
+      膨大な判例をAIが一瞬で検索
+    on_screen_segments:
+      - text: 第5位：
+        style:
+          font: Noto Sans JP
+          fontsize: 70
+          fill: "#FFE65A"
+          stroke:
+            color: "#000000"
+            width: 5
+          position:
+            x: center
+            y: center-80
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+      - text: 法律専門家
+        style:
+          font: Noto Sans JP
+          fontsize: 68
+          fill: "#FFFFFF"
+          stroke:
+            color: "#000000"
+            width: 5
+          position:
+            x: center
+            y: center-80
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+      - text: 膨大な判例をAIが一瞬で検索
+        style:
+          font: Noto Sans JP
+          fontsize: 50
+          fill: "#DDDDDD"
+          stroke:
+            color: "#000000"
+            width: 5
+          position:
+            x: center
+            y: center-80
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+    overlays: []
+    narration: 第5位は、弁護士やパラリーガルなどの法律専門家です。AIは膨大な法律文書や過去の判例を瞬時に分析し、関連性の高い情報を抽出します。これにより、リサーチ時間を大幅に短縮し、より高度な法的判断や戦略立案に専念できるようになりました。
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: 法律事務所, 書庫, 裁判所, 六法全書
+    hook: null
+    evidence: null
+    demo: null
+    bridge: 法律の世界でもAIが活躍。では、次は人の命に関わるあの現場です。
+    cta: null
+    effects: []
+  - id: section-2
+    on_screen_text: |-
+      第4位：医療専門家
+      AIが名医を超える診断精度
+    on_screen_segments:
+      - text: 第4位：
+        style:
+          font: Noto Sans JP
+          fontsize: 70
+          fill: "#FFE65A"
+          stroke:
+            color: "#000000"
+            width: 5
+          position:
+            x: center
+            y: center-80
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+      - text: 医療専門家
+        style:
+          font: Noto Sans JP
+          fontsize: 68
+          fill: "#FFFFFF"
+          stroke:
+            color: "#000000"
+            width: 5
+          position:
+            x: center
+            y: center-80
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+      - text: AIが名医を超える診断精度
+        style:
+          font: Noto Sans JP
+          fontsize: 50
+          fill: "#DDDDDD"
+          stroke:
+            color: "#000000"
+            width: 5
+          position:
+            x: center
+            y: center-80
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+    overlays: []
+    narration: 第4位は医師や放射線技師などの医療専門家。AIによる画像診断支援システムは、レントゲンやCTスキャンから人間では見逃しがちな微細な病変を見つけ出します。診断の迅速化と精度向上に大きく貢献し、医療の質そのものを変えつつあります。
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: MRIスキャン画像, 医療研究室, DNA CG, 病院
+    hook: null
+    evidence: null
+    demo: null
+    bridge: 医療現場の次は、巨額のお金が動くあの世界。AIの予測能力が試されます。
+    cta: null
+    effects:
+      - zoom_pan_left
+  - id: section-3
+    on_screen_text: |-
+      第3位：金融アナリスト
+      1秒先の未来を読む市場予測
+    on_screen_segments:
+      - text: 第3位：
+        style:
+          font: Noto Sans JP
+          fontsize: 70
+          fill: "#FFE65A"
+          stroke:
+            color: "#000000"
+            width: 5
+          position:
+            x: center
+            y: center-80
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+      - text: 金融アナリスト
+        style:
+          font: Noto Sans JP
+          fontsize: 68
+          fill: "#FFFFFF"
+          stroke:
+            color: "#000000"
+            width: 5
+          position:
+            x: center
+            y: center-80
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+      - text: 1秒先の未来を読む市場予測
+        style:
+          font: Noto Sans JP
+          fontsize: 50
+          fill: "#DDDDDD"
+          stroke:
+            color: "#000000"
+            width: 5
+          position:
+            x: center
+            y: center-80
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+    overlays: []
+    narration: 第3位は金融アナリストやトレーダーです。AIは市場データ、経済ニュース、SNSの投稿までリアルタイムで分析し、人間では不可能な速度と規模で情報を処理。株価予測やアルゴリズム取引に活用され、金融市場の常識を塗り替えています。
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: 株価チャート, 証券取引所, 電光掲示板, グラフ
+    hook: null
+    evidence: null
+    demo: null
+    bridge: 金融の世界を動かすAI。次は、私たちの消費行動を操るあの職業です。
+    cta: null
+    effects: []
+  - id: section-4
+    on_screen_text: |-
+      ��2位：マーケティング担当者
+      あなたの「欲しい」はAIが作る
+    on_screen_segments:
+      - text: 第2位：
+        style:
+          font: Noto Sans JP
+          fontsize: 70
+          fill: "#FFE65A"
+          stroke:
+            color: "#000000"
+            width: 5
+          position:
+            x: center
+            y: center-80
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+      - text: マーケティング担当者
+        style:
+          font: Noto Sans JP
+          fontsize: 68
+          fill: "#FFFFFF"
+          stroke:
+            color: "#000000"
+            width: 5
+          position:
+            x: center
+            y: center-80
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+      - text: あなたの「欲しい」はAIが作る
+        style:
+          font: Noto Sans JP
+          fontsize: 50
+          fill: "#DDDDDD"
+          stroke:
+            color: "#000000"
+            width: 5
+          position:
+            x: center
+            y: center-80
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+    overlays: []
+    narration: 第2位はマーケティング担当者。AIは顧客の購買履歴や閲覧データを分析し、一人ひとりに最適化された広告を配信します。また、効果的な広告コピーやSNS投稿の自動生成も可能にし、マーケティングの効率と精度を劇的に高めています。
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: ショッピングサイト, SNSフィード, データ分析, 広告
+    hook: null
+    evidence: null
+    demo: null
+    bridge: いよいよ第1位の発表です。AIを最も活用しているのは、AIそのものを生み出すあの職業でした。
+    cta: null
+    effects:
+      - zoom_out
+  - id: outro
+    on_screen_text: |-
+      AIは敵か、味方か。
+      あなたの意見をコメントで！
+    on_screen_segments:
+      - text: AIは敵か、味方か。
+        style:
+          font: Noto Sans JP
+          fontsize: 64
+          fill: "#FFFFFF"
+          stroke:
+            color: "#000000"
+            width: 5
+          position:
+            x: center
+            y: center-80
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+      - text: あなたの意見をコメントで！
+        style:
+          font: Noto Sans JP
+          fontsize: 58
+          fill: "#FFE65A"
+          stroke:
+            color: "#000000"
+            width: 5
+          position:
+            x: center
+            y: center-80
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+    overlays: []
+    narration: AI活用職業ランキング、いかがでしたか？AIは仕事を奪う存在ではなく、各分野の専門家の能力を拡張する強力なパートナーになりつつあります。あなたの職場でのAI活用法やご意見を、ぜひコメントで教えてください！
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: null
+    hook: null
+    evidence: null
+    demo: null
+    bridge: null
+    cta: この動画が面白いと思ったら、高評価とチャンネル登録をよろしくお願いします！
+    effects: []
+output:
+  filename: explainer_stats-20251122090147.mp4
+  srt: true
+  thumbnail_time_sec: 1
+upload_prep:
+  title: ネタ解説・統計で読む○○で覚えておきたいベスト5
+  tags:
+    - 統計
+    - ランキング
+    - ライフハック
+  desc: |-
+    AIの導入が進む現代社会で、実際にAIを最も活用しているのはどの職業なのか？最新の統計データを基に、意外な事実をランキング形式で解説します。
+
+    ネタ解説・統計で読む○○テーマの自動生成スクリプト（2025-11-22 作成）
+    コメントであなたの予想や意見を教えてください！

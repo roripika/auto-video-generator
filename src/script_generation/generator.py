@@ -73,7 +73,7 @@ class ScriptFromBriefGenerator:
             },
             "text_style": {
                 "font": "Noto Sans JP",
-                "fontsize": 60,
+                "fontsize": 100,
                 "fill": "#FFFFFF",
                 "position": {"x": "center", "y": "center"},
                 "stroke": {"color": "#000000", "width": 4},
@@ -174,6 +174,7 @@ CTA: {cta}
 - `effects` は必要に応じて上記リストから選び配列で記載する（無い場合は空配列可）。
 - `video.bg` には背景キーワード/素材案を入れる（URL/ファイル名/キーワードいずれでも可）。
 - `text_style` はフォント/サイズ/色/位置の推奨値があれば記載する（読みやすさと強調を考慮）。
+- テロップのフォントサイズは最低でも 100pt 以上を推奨し、`on_screen_segments` では重ならないよう十分な行間やずれを持たせた位置指定を記述する。
 - `bg_keyword` は各セクションの背景検索用キーワードを書いてください。
 
 出力フォーマットの例:

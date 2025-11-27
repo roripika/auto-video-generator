@@ -10,6 +10,7 @@
   const settingsStabilityKeyInput = document.getElementById('settingsStabilityKey');
   const settingsYoutubeKeyInput = document.getElementById('settingsYoutubeKey');
   const settingsBgmDirInput = document.getElementById('settingsBgmDir');
+  const settingsYoutubeForceInput = document.getElementById('settingsYoutubeForce');
   const providerHintEl = document.getElementById('providerHint');
   const settingsSaveBtn = document.getElementById('settingsSaveBtn');
   const externalLinks = document.querySelectorAll('[data-external-link="true"]');
@@ -123,6 +124,7 @@
     settingsStabilityKeyInput.value = settings.stabilityApiKey || '';
     settingsYoutubeKeyInput.value = settings.youtubeApiKey || '';
     settingsBgmDirInput.value = settings.bgmDirectory || 'assets/bgm';
+    settingsYoutubeForceInput.value = settings.youtubeForceVideo || '';
     settingsBaseUrlInput.dataset.dirty = 'false';
     settingsModelInput.dataset.dirty = 'false';
     updateProviderHint();
@@ -149,6 +151,7 @@
       stabilityApiKey: settingsStabilityKeyInput.value.trim(),
       youtubeApiKey: settingsYoutubeKeyInput.value.trim(),
       bgmDirectory: settingsBgmDirInput.value.trim(),
+      youtubeForceVideo: settingsYoutubeForceInput.value.trim(),
     };
     try {
       await window.aiSettings.save(payload);

@@ -1,0 +1,349 @@
+project: explainer_stats-20251126061648
+title: AIを活用している職業ランキング
+locale: ja-JP
+video:
+  width: 1920
+  height: 1080
+  fps: 30
+  bg: pexels「データ分析」
+  bg_fit: cover
+voice:
+  engine: voicevox
+  speaker_id: 13
+  speedScale: 1.02
+  pitchScale: 0
+  intonationScale: 1.1
+  volumeScale: 1
+  pause_msec: 150
+text_style:
+  font: Noto Sans JP
+  fontsize: 60
+  fill: "#FFFFFF"
+  stroke:
+    color: "#000000"
+    width: 4
+  position:
+    x: center
+    y: center-100
+  max_chars_per_line: 18
+  lines: 2
+  animation: null
+bgm:
+  file: "背景: 軽快トリビア"
+  volume_db: -10
+  ducking_db: -16
+  license: Pixabay License
+watermark: null
+credits: null
+sections:
+  - id: intro
+    on_screen_text: AIを活用している職業ランキング
+    on_screen_segments: []
+    overlays: []
+    narration: AIの活用が進む現代、どの職業が最もAIを利用しているのかをランキング形式で紹介します。
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: null
+    hook: ""
+    evidence: ""
+    demo: ""
+    bridge: ""
+    cta: コメントであなたの予想や意見を教えてください！
+    effects: []
+  - id: section-5
+    on_screen_text: |-
+      第5位：
+      マーケティング職
+      AIで市場分析を強化
+    on_screen_segments:
+      - text: 第5位：
+        style:
+          font: Noto Sans JP
+          fontsize: 64
+          fill: "#FFE65A"
+          stroke:
+            color: "#000000"
+            width: 6
+          position:
+            x: center
+            y: center-100
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+      - text: |-
+          マーケティング職
+          AIで市場分析を強化
+        style:
+          font: Noto Sans JP
+          fontsize: 60
+          fill: "#FFFFFF"
+          stroke:
+            color: "#000000"
+            width: 6
+          position:
+            x: center
+            y: center-100
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+    overlays: []
+    narration: マーケティング職では、AIを活用して市場分析を行い、戦略の精度を高めています。
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: マーケティング, データ分析
+    hook: マーケティングの未来はAIにあり？
+    evidence: AIを活用することで、マーケティング戦略の精度が大幅に向上しています。
+    demo: AIによる市場データ分析の具体例を紹介。
+    bridge: 次はさらにAIを活用する職業をご紹介します。
+    cta: AIを使ったマーケティング、試してみませんか？
+    effects:
+      - zoom_in
+  - id: section-4
+    on_screen_text: |-
+      第4位：
+      金融アナリスト
+      リスク管理にAIを活用
+    on_screen_segments:
+      - text: 第4位：
+        style:
+          font: Noto Sans JP
+          fontsize: 64
+          fill: "#FFE65A"
+          stroke:
+            color: "#000000"
+            width: 6
+          position:
+            x: center
+            y: center-100
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+      - text: |-
+          金融アナリスト
+          リスク管理にAIを活用
+        style:
+          font: Noto Sans JP
+          fontsize: 60
+          fill: "#FFFFFF"
+          stroke:
+            color: "#000000"
+            width: 6
+          position:
+            x: center
+            y: center-100
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+    overlays: []
+    narration: 金融アナリストは、AIを活用してリスク管理や市場予測を行っています。
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: 金融, リスク管理
+    hook: 金融の世界でもAIが活躍中！
+    evidence: AIは、金融市場のリスク管理や予測において重要な役割を果たしています。
+    demo: AIを使ったリスク管理のシミュレーションを紹介。
+    bridge: 次に紹介する職業は、さらにAIの可能性を広げています。
+    cta: AIで金融リスクを管理する時代が来ています。
+    effects:
+      - zoom_pan_right
+  - id: section-3
+    on_screen_text: |-
+      第3位：
+      エンジニアリング
+      製品開発にAIを導入
+    on_screen_segments:
+      - text: 第3位：
+        style:
+          font: Noto Sans JP
+          fontsize: 64
+          fill: "#FFE65A"
+          stroke:
+            color: "#000000"
+            width: 6
+          position:
+            x: center
+            y: center-100
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+      - text: |-
+          エンジニアリング
+          製品開発にAIを導入
+        style:
+          font: Noto Sans JP
+          fontsize: 60
+          fill: "#FFFFFF"
+          stroke:
+            color: "#000000"
+            width: 6
+          position:
+            x: center
+            y: center-100
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+    overlays: []
+    narration: エンジニアリングの分野では、AIを使って製品開発の効率化を図っています。
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: エンジニアリング, 製品開発
+    hook: エンジニアリングの未来がAIで変わる！
+    evidence: AIは製品開発のプロセスを効率化し、革新をもたらしています。
+    demo: AIを活用した製品開発の事例を紹介。
+    bridge: 次は、AIが特に注目されている職業です。
+    cta: AIでエンジニアリングの可能性を広げましょう。
+    effects:
+      - zoom_out
+  - id: section-2
+    on_screen_text: |-
+      第2位：
+      医療分野
+      AIで診断精度を向上
+    on_screen_segments:
+      - text: 第2位：
+        style:
+          font: Noto Sans JP
+          fontsize: 64
+          fill: "#FFE65A"
+          stroke:
+            color: "#000000"
+            width: 6
+          position:
+            x: center
+            y: center-100
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+      - text: |-
+          医療分野
+          AIで診断精度を向上
+        style:
+          font: Noto Sans JP
+          fontsize: 60
+          fill: "#FFFFFF"
+          stroke:
+            color: "#000000"
+            width: 6
+          position:
+            x: center
+            y: center-100
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+    overlays: []
+    narration: 医療分野では、AIを活用して診断精度を向上させる取り組みが進んでいます。
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: 医療, 診断
+    hook: 医療の未来はAIの手に？
+    evidence: AIは医療診断の精度を向上させ、患者の治療に役立っています。
+    demo: AIを活用した診断システムの紹介。
+    bridge: そして、AIを最も活用している職業は…
+    cta: AIで医療の未来を変えていきましょう。
+    effects:
+      - contrast
+  - id: section-1
+    on_screen_text: |-
+      第1位：
+      IT業界
+      AIで革新を続ける
+    on_screen_segments:
+      - text: 第1位：
+        style:
+          font: Noto Sans JP
+          fontsize: 64
+          fill: "#FFE65A"
+          stroke:
+            color: "#000000"
+            width: 6
+          position:
+            x: center
+            y: center-100
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+      - text: |-
+          IT業界
+          AIで革新を続ける
+        style:
+          font: Noto Sans JP
+          fontsize: 60
+          fill: "#FFFFFF"
+          stroke:
+            color: "#000000"
+            width: 6
+          position:
+            x: center
+            y: center-100
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+    overlays: []
+    narration: IT業界は、AIを活用して革新を続け、新たなサービスを生み出しています。
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: IT, 革新
+    hook: IT業界がAIの最前線！
+    evidence: AI技術はIT業界の革新を支え、新しいサービスやプロダクトを生み出しています。
+    demo: AIを活用した最新のITサービスを紹介。
+    bridge: AIの活用が進む現代、次はあなたの職場でも？
+    cta: IT業界でAIを活用してみませんか？
+    effects:
+      - vignette
+  - id: outro
+    on_screen_text: まとめ\nAIの活用が進む職業ランキング
+    on_screen_segments:
+      - text: まとめ
+        style:
+          font: Noto Sans JP
+          fontsize: 58
+          fill: "#FFE65A"
+          stroke:
+            color: "#000000"
+            width: 4
+          position:
+            x: center
+            y: center-100
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+      - text: AIの活用が進む職業ランキング
+        style:
+          font: Noto Sans JP
+          fontsize: 54
+          fill: "#FFFFFF"
+          stroke:
+            color: "#000000"
+            width: 4
+          position:
+            x: center
+            y: center-100
+          max_chars_per_line: 22
+          lines: 3
+          animation: null
+    overlays: []
+    narration: AIの活用が進む職業ランキングをご紹介しました。あなたの職場でもAIを活用してみてください。
+    duration_hint_sec: null
+    bg: null
+    bg_keyword: null
+    hook: null
+    evidence: null
+    demo: null
+    bridge: null
+    cta: コメントやチャンネル登録をお忘れなく！
+    effects: []
+output:
+  filename: explainer_stats-20251126061648.mp4
+  srt: true
+  thumbnail_time_sec: 1
+upload_prep:
+  title: ネタ解説・統計で読む○○で覚えておきたいベスト5
+  tags:
+    - 統計
+    - ランキング
+    - ライフハック
+  desc: |-
+    AIの活用が進む現代、どの職業が最もAIを利用しているのかをランキング形式で紹介します。
+
+    ネタ解説・統計で読む○○テーマの自動生成スクリプト（2025-11-26 作成）
+    コメントであなたの予想や意見を教えてください！

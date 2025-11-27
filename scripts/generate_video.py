@@ -52,6 +52,7 @@ SHARED_SETTINGS = load_saved_settings()
 AUDIO_EXTENSIONS = {".mp3", ".wav", ".aac", ".m4a", ".flac", ".ogg"}
 BGM_SEARCH_DIR = resolve_bgm_directory(SHARED_SETTINGS)
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY") or SHARED_SETTINGS.get("youtubeApiKey")
+YOUTUBE_FORCE_VIDEO = os.getenv("YOUTUBE_FORCE_VIDEO") or SHARED_SETTINGS.get("youtubeForceVideo")
 YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
 YOUTUBE_DOWNLOAD_DIR = BGM_SEARCH_DIR / "youtube"
 DEFAULT_BGM_KEYWORDS = ["雑学 BGM", "雑学bgm", "lofi bgm"]
@@ -153,7 +154,7 @@ def ensure_bgm_track(script) -> Path | None:
             keywords.append(section.on_screen_text)
     keywords.extend(DEFAULT_BGM_KEYWORDS)
 
-    youtube_candidate = fetch_youtube_bgm(keywords)
+    youtube_candidate = fetch_youtube_bgm(keywords, force_video_id=YOUTUBE_FORCE_VIDEO)
     if youtube_candidate:
         target = Path(youtube_candidate)
         if not script.bgm:
@@ -204,9 +205,30 @@ def ensure_bgm_track(script) -> Path | None:
     return selected
 
 
-def fetch_youtube_bgm(keywords: List[str]) -> Optional[Path]:
+def _extract_video_id(identifier: str) -> Optional[str]:
+    value = identifier.strip()
+    if not value:
+        return None
+    if "youtu" not in value and len(value) <= 15:
+        return value
+    if "watch?v=" in value:
+        return value.split("watch?v=")[-1].split("&", 1)[0]
+    if "youtu.be/" in value:
+        return value.split("youtu.be/")[-1].split("?", 1)[0]
+    return value
+
+
+def fetch_youtube_bgm(keywords: List[str], force_video_id: Optional[str] = None) -> Optional[Path]:
     if not YOUTUBE_API_KEY:
         return None
+    if force_video_id:
+        target_id = _extract_video_id(force_video_id)
+        if target_id:
+            forced = download_youtube_audio(target_id, f"forced:{target_id}")
+            if forced:
+                print(f"[INFO] BGM を指定動画 ({target_id}) から取得しました。")
+                return forced
+            print(f"[WARN] 指定された YouTube 動画 ({target_id}) のダウンロードに失敗しました。通常検索にフォールバックします。")
     query = " ".join(filter(None, keywords)).strip() or "lofi study music"
     params = {
         "key": YOUTUBE_API_KEY,

@@ -59,7 +59,6 @@ def _escape_text(text: str) -> str:
     normalized = text.replace("\r\n", "\n").replace("\r", "\n").replace("\\n", "\n")
     return (
         normalized.replace("\\", "\\\\")  # backslash first
-        .replace("\n", r"\n")  # ffmpeg expects literal \n tokens for line breaks
         .replace(":", r"\:")
         .replace(",", r"\,")
         .replace("'", "\\'")
@@ -443,8 +442,15 @@ def build_ffmpeg_command(
 
     # Audio – narration concat or silent fallback
     if voice_indices:
-        labels = "".join(f"[{idx}:a]" for idx in voice_indices)
-        filter_parts.append(f"{labels}concat=n={len(voice_indices)}:v=0:a=1[voice]")
+        normalized_voice_labels: List[str] = []
+        for v_idx in voice_indices:
+            norm_label = f"[voice_norm{len(normalized_voice_labels)}]"
+            filter_parts.append(
+                f"[{v_idx}:a]asetpts=PTS-STARTPTS,aformat=sample_rates=44100:channel_layouts=mono{norm_label}"
+            )
+            normalized_voice_labels.append(norm_label)
+        labels = "".join(normalized_voice_labels)
+        filter_parts.append(f"{labels}concat=n={len(normalized_voice_labels)}:v=0:a=1[voice]")
         voice_label = "[voice]"
     else:
         filter_parts.append("anullsrc=channel_layout=stereo:sample_rate=44100[voice]")
@@ -454,6 +460,8 @@ def build_ffmpeg_command(
 
     # BGM + ducking mix
     if bgm_index is not None:
+        voice_mix_label = voice_label
+        voice_side_label = voice_label
         bgm_volume = _db_to_linear(script.bgm.volume_db)
         duration_pad = total_duration + 1.0
         filter_parts.append(
@@ -462,14 +470,19 @@ def build_ffmpeg_command(
         )
         bgm_label = "[bgm]"
         if script.bgm.ducking_db:
-            # Sidechain compress BGM using narration as sidechain source
+            filter_parts.append(f"{voice_label}asplit=2[voice_mix][voice_side]")
+            voice_mix_label = "[voice_mix]"
+            voice_side_label = "[voice_side]"
+            # Sidechain compress BGM using narration as sidechain source.
+            # Use a fixed threshold so narration reliably ducks the music.
+            duck_threshold = _db_to_linear(-32.0)
             filter_parts.append(
-                f"{bgm_label}{voice_label}sidechaincompress="
-                f"threshold=-32dB:ratio=8:attack=5:release=250:makeup=0[bgmduck]"
+                f"{bgm_label}{voice_side_label}sidechaincompress="
+                f"threshold={duck_threshold}:ratio=8:attack=5:release=250:makeup=1[bgmduck]"
             )
             bgm_label = "[bgmduck]"
         filter_parts.append(
-            f"{bgm_label}{voice_label}amix=inputs=2:duration=longest:dropout_transition=0[aout]"
+            f"{bgm_label}{voice_mix_label}amix=inputs=2:duration=longest:dropout_transition=0[aout]"
         )
         audio_output_label = "[aout]"
 

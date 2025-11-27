@@ -27,10 +27,12 @@
   const textAnimationInput = document.getElementById('textAnimationInput');
   const bgmFileInput = document.getElementById('bgmFileInput');
   const bgmBrowseBtn = document.getElementById('bgmBrowseBtn');
+  const bgmOpenWindowBtn = document.getElementById('bgmOpenWindowBtn');
   const bgmClearBtn = document.getElementById('bgmClearBtn');
   const bgmVolumeInput = document.getElementById('bgmVolumeInput');
   const bgmDuckingInput = document.getElementById('bgmDuckingInput');
   const bgmLicenseInput = document.getElementById('bgmLicenseInput');
+  const settingsYoutubeForceInput = document.getElementById('settingsYoutubeForce');
   const audioGenerateBtn = document.getElementById('audioGenerateBtn');
   const audioClearBtn = document.getElementById('audioClearBtn');
   const timelineRefreshBtn = document.getElementById('timelineRefreshBtn');
@@ -1407,6 +1409,7 @@
     if (settingsStabilityKeyInput) settingsStabilityKeyInput.value = settings.stabilityApiKey || '';
     if (settingsYoutubeKeyInput) settingsYoutubeKeyInput.value = settings.youtubeApiKey || '';
     if (settingsBgmDirInput) settingsBgmDirInput.value = settings.bgmDirectory || 'assets/bgm';
+    if (settingsYoutubeForceInput) settingsYoutubeForceInput.value = settings.youtubeForceVideo || '';
     updateProviderHint();
     settingsModal.classList.remove('hidden');
   }
@@ -1438,6 +1441,7 @@
       stabilityApiKey: settingsStabilityKeyInput?.value?.trim() || '',
       youtubeApiKey: settingsYoutubeKeyInput?.value?.trim() || '',
       bgmDirectory: settingsBgmDirInput?.value?.trim() || '',
+      youtubeForceVideo: settingsYoutubeForceInput?.value?.trim() || '',
     };
     try {
       const saved = await window.api.saveSettings(payload);
@@ -1546,6 +1550,16 @@
   if (textAnimationInput) textAnimationInput.addEventListener('input', handleAnimationChange);
   if (bgmFileInput) bgmFileInput.addEventListener('input', handleBgmFileInput);
   if (bgmBrowseBtn) bgmBrowseBtn.addEventListener('click', handleBrowseBgm);
+  if (bgmOpenWindowBtn && window.api.openBgmWindow) {
+    bgmOpenWindowBtn.addEventListener('click', async () => {
+      try {
+        await window.api.openBgmWindow();
+      } catch (err) {
+        console.error('Failed to open BGM library window', err);
+        setStatus('BGMライブラリを開けませんでした。');
+      }
+    });
+  }
   if (bgmClearBtn) bgmClearBtn.addEventListener('click', handleClearBgm);
   if (bgmVolumeInput) bgmVolumeInput.addEventListener('input', handleBgmVolumeInput);
   if (bgmDuckingInput) bgmDuckingInput.addEventListener('input', handleBgmDuckingInput);
@@ -1591,6 +1605,17 @@
       } else {
         setVideoBackground(payload.path);
       }
+    });
+  }
+  if (window.api.onBgmSelected) {
+    window.api.onBgmSelected((payload) => {
+      if (!payload || !payload.path) return;
+      const bgm = ensureBgmConfig();
+      if (!bgm) return;
+      bgm.file = payload.path;
+      renderBgmForm();
+      renderYaml();
+      setStatus(`BGMを ${payload.displayName || payload.path} に設定しました。`);
     });
   }
 })();

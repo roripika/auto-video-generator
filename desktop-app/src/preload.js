@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld('api', {
   onAssetSelected: (callback) => ipcRenderer.on('asset:selected', (_event, payload) => callback(payload)),
   chooseBackgroundFile: () => ipcRenderer.invoke('background:choose-file'),
   chooseBgmFile: () => ipcRenderer.invoke('bgm:choose-file'),
+  openBgmWindow: () => ipcRenderer.invoke('bgm-window:open'),
+  onBgmSelected: (callback) => ipcRenderer.on('bgm:selected', (_event, payload) => callback(payload)),
   openSettingsWindow: () => ipcRenderer.invoke('settings:open-window'),
   generateAudio: (payload) => ipcRenderer.invoke('audio:generate', payload),
   clearAudioCache: () => ipcRenderer.invoke('audio:clear'),
