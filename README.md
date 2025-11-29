@@ -141,3 +141,12 @@ npm start
 - `docs/script_editor_spec.md`: テーマ／ランキングエディタ UI のコンセプトや AI 連携フロー。
 - `docs/TODO.md`: 実装タスク（AI 台本生成、素材パイプライン、サムネ自動化など）。
 - `configs/themes/`: ランキング向けの企画テンプレート（例: `lifehack_surprise.yaml`）。`src/themes.py` から読み込めます。
+- **自動トレンド動画投稿機能** (`scripts/auto_trend_pipeline.py`): GoogleトレンドのデイリーRSSから話題キーワードを取得し、`generate_script_from_brief.py` と `generate_video.py` を自動で呼び出して動画を生成する追加ユーティリティ。任意で YouTube へのアップロードも試行できます。主なフローとオプション:
+  - フロー: 指定時間ごとに起動 → トレンド上位（例: 100件）取得 → AIが話題になりそうなネタを選びブリーフ生成 → AI台本生成で YAML 作成 → 音声キャッシュ等をクリア → 動画生成 → YouTube API で自動アップロード（任意）
+  - `--geo JP` : トレンド取得対象の地域コード。
+  - `--max-keywords N` : 1サイクルで処理するキーワード数。
+  - `--brief-template "…{keyword}…"` : キーワードを埋め込むブリーフのテンプレート。
+  - `--theme-id lifehack_surprise` : 使用するテーマ ID。
+  - `--sections 5` : セクション数。
+  - `--interval-minutes 60` / `--max-runs 5` : 指定すると定期実行でループ。
+  - `--youtube-client-secrets client_secrets.json` (任意) : 指定すると YouTube へのアップロードを試行。`google-api-python-client` などの依存が必要。
