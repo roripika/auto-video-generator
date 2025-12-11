@@ -1,5 +1,6 @@
 const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
 const path = require('path');
+const os = require('os');
 const fs = require('fs');
 const YAML = require('yaml');
 const { spawn } = require('child_process');
@@ -39,6 +40,10 @@ function cloneProviderDefaults() {
   return defaults;
 }
 
+const DEFAULT_YT_CREDENTIALS_PATH = path.join(os.homedir(), '.config', 'auto-video-generator', 'youtube_credentials.pickle');
+
+const YOUTUBE_PRIVACY_OPTIONS = new Set(['private', 'unlisted', 'public']);
+
 const DEFAULT_AI_SETTINGS = {
   activeProvider: 'openai',
   providers: cloneProviderDefaults(),
@@ -46,6 +51,9 @@ const DEFAULT_AI_SETTINGS = {
   pixabayApiKey: '',
   stabilityApiKey: '',
   youtubeApiKey: '',
+  youtubeClientSecretsPath: '',
+  youtubeCredentialsPath: DEFAULT_YT_CREDENTIALS_PATH,
+  youtubePrivacyStatus: 'private',
   bgmDirectory: 'assets/bgm',
   assetProviderOrder: 'pexels,pixabay',
   assetMaxResults: 5,
@@ -55,6 +63,10 @@ const FETCH_ASSETS_SCRIPT = path.join(PROJECT_ROOT, 'scripts', 'fetch_assets.py'
 const GENERATE_AUDIO_SCRIPT = path.join(PROJECT_ROOT, 'scripts', 'generate_audio.py');
 const DESCRIBE_TIMELINE_SCRIPT = path.join(PROJECT_ROOT, 'scripts', 'describe_timeline.py');
 const GENERATE_VIDEO_SCRIPT = path.join(PROJECT_ROOT, 'scripts', 'generate_video.py');
+const YOUTUBE_AUTH_TEST_SCRIPT = path.join(PROJECT_ROOT, 'scripts', 'youtube_auth_test.py');
+const TRENDS_FETCH_SCRIPT = path.join(PROJECT_ROOT, 'scripts', 'fetch_trend_ideas_llm.py');
+const YOUTUBE_UPLOAD_SCRIPT = path.join(PROJECT_ROOT, 'scripts', 'youtube_upload.py');
+const SCHEDULE_FILE = path.join(SETTINGS_DIR, 'schedule.json');
 const TMP_DIR = path.join(PROJECT_ROOT, 'tmp');
 const UI_SCRIPT_PATH = path.join(TMP_DIR, 'ui_script.yaml');
 const AUDIO_CACHE_DIR = path.join(PROJECT_ROOT, 'work', 'audio');
@@ -66,6 +78,9 @@ let mainWindowRef = null;
 let assetWindow = null;
 let bgmWindow = null;
 let settingsWindow = null;
+let trendWindow = null;
+let schedulerWindow = null;
+let schedulerTimers = {};
 
 function suggestScriptFilename(script) {
   const raw =
@@ -143,6 +158,55 @@ function registerHandlers() {
   ipcMain.on('asset-window:apply-bg', (_event, payload) => {
     if (mainWindowRef && !mainWindowRef.isDestroyed()) {
       mainWindowRef.webContents.send('asset:selected', payload);
+    }
+  });
+  ipcMain.handle('scheduler:open', () => {
+    if (schedulerWindow && !schedulerWindow.isDestroyed()) {
+      schedulerWindow.focus();
+      return { ok: true };
+    }
+    schedulerWindow = new BrowserWindow({
+      width: 860,
+      height: 720,
+      title: '定期実行タスク',
+      parent: mainWindowRef || undefined,
+      webPreferences: {
+        preload: path.join(__dirname, 'preload_scheduler.js'),
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    });
+    schedulerWindow.on('closed', () => {
+      schedulerWindow = null;
+    });
+    schedulerWindow.loadFile(path.join(__dirname, 'renderer', 'scheduler.html'));
+    return { ok: true };
+  });
+  ipcMain.handle('trend-window:open', () => {
+    if (trendWindow && !trendWindow.isDestroyed()) {
+      trendWindow.focus();
+      return { ok: true };
+    }
+    trendWindow = new BrowserWindow({
+      width: 720,
+      height: 640,
+      title: 'トレンド候補',
+      parent: mainWindowRef || undefined,
+      webPreferences: {
+        preload: path.join(__dirname, 'preload_trends.js'),
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    });
+    trendWindow.on('closed', () => {
+      trendWindow = null;
+    });
+    trendWindow.loadFile(path.join(__dirname, 'renderer', 'trends.html'));
+    return { ok: true };
+  });
+  ipcMain.on('trend-window:apply', (_event, payload) => {
+    if (mainWindowRef && !mainWindowRef.isDestroyed()) {
+      mainWindowRef.webContents.send('trend:selected', payload);
     }
   });
   ipcMain.handle('bgm-window:open', () => {
@@ -328,6 +392,83 @@ function registerHandlers() {
     }
     return { canceled: false, path: result.filePaths[0] };
   });
+  ipcMain.handle('file:choose-json', async () => {
+    const result = await dialog.showOpenDialog({
+      title: 'client_secrets.json を選択',
+      properties: ['openFile'],
+      filters: [{ name: 'JSON', extensions: ['json'] }, { name: 'All files', extensions: ['*'] }],
+    });
+    if (result.canceled || !result.filePaths.length) {
+      return { canceled: true };
+    }
+    return { canceled: false, path: result.filePaths[0] };
+  });
+  ipcMain.handle('file:choose-any', async () => {
+    const result = await dialog.showOpenDialog({
+      title: '保存先ファイルを選択（既存ファイルを指定可）',
+      properties: ['openFile', 'createDirectory'],
+      filters: [{ name: 'All files', extensions: ['*'] }],
+    });
+    if (result.canceled || !result.filePaths.length) {
+      return { canceled: true };
+    }
+    return { canceled: false, path: result.filePaths[0] };
+  });
+  ipcMain.handle('youtube:auth-test', async () => {
+    const settings = currentSettings || DEFAULT_AI_SETTINGS;
+    const clientPath = settings.youtubeClientSecretsPath;
+    const credPath = settings.youtubeCredentialsPath || DEFAULT_YT_CREDENTIALS_PATH;
+    if (!clientPath || !fs.existsSync(clientPath)) {
+      throw new Error('client_secrets.json のパスが設定されていません。');
+    }
+    const args = [
+      YOUTUBE_AUTH_TEST_SCRIPT,
+      '--client-secrets',
+      clientPath,
+      '--credentials',
+      credPath,
+    ];
+    return new Promise((resolve, reject) => {
+      const proc = spawn(PYTHON_BIN, args, { cwd: PROJECT_ROOT });
+      let stderr = '';
+      proc.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+      proc.on('error', (err) => reject(err));
+      proc.on('close', (code) => {
+        if (code === 0) {
+          resolve({ ok: true, credentials: credPath });
+        } else {
+          reject(new Error(stderr || `auth test failed (exit ${code})`));
+        }
+      });
+    });
+  });
+  ipcMain.handle('trends:fetch', async (event, payload) => {
+    const geo = (payload?.geo || 'JP').toUpperCase();
+    const limit = Math.max(1, Math.min(Number(payload?.limit) || 10, 50));
+    const ytKey = currentSettings.youtubeApiKey || process.env.YOUTUBE_API_KEY;
+    if (!ytKey) {
+      throw new Error('YouTube API Keyが設定されていません。');
+    }
+    const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet&chart=mostPopular&regionCode=${geo}&maxResults=${limit}&key=${ytKey}`;
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`YouTube trending fetch failed: status ${resp.status} ${text}`);
+    }
+    const data = await resp.json();
+    const seen = new Set();
+    const titles = [];
+    (data.items || []).forEach((item) => {
+      const title = item?.snippet?.title;
+      if (title && !seen.has(title)) {
+        seen.add(title);
+        titles.push(title);
+      }
+    });
+    return titles;
+  });
   ipcMain.handle('audio:generate', async (event, payload) => {
     const script = payload?.script;
     if (!script) {
@@ -364,6 +505,7 @@ function registerHandlers() {
     }
     if (payload?.skipAudio) args.push('--skip-audio');
     if (payload?.forceAudio) args.push('--force-audio');
+    if (payload?.clearAudio) args.push('--clear-audio-cache');
     const result = await runPythonText(args, '動画生成に失敗しました。');
     const outputDir = payload?.outputDir || OUTPUTS_DIR;
     const filename = script?.output?.filename || 'output.mp4';
@@ -398,6 +540,50 @@ function registerHandlers() {
       return { path: null };
     }
   });
+  ipcMain.handle('video:upload', async (event, payload) => {
+    const videoPath = payload?.path;
+    if (!videoPath) throw new Error('動画パスが指定されていません。');
+    const settings = currentSettings || DEFAULT_AI_SETTINGS;
+    const clientSecrets = settings.youtubeClientSecretsPath;
+    const credsPath = settings.youtubeCredentialsPath || DEFAULT_YT_CREDENTIALS_PATH;
+    const privacyStatus = normalizeYoutubePrivacyStatus(settings.youtubePrivacyStatus);
+    if (!clientSecrets || !fs.existsSync(clientSecrets)) {
+      throw new Error('client_secrets.json のパスが設定されていません。設定画面で指定してください。');
+    }
+    const args = [
+      YOUTUBE_UPLOAD_SCRIPT,
+      '--video',
+      videoPath,
+      '--title',
+      payload?.title || path.basename(videoPath),
+      '--description',
+      payload?.description || '',
+      '--client-secrets',
+      clientSecrets,
+      '--credentials',
+      credsPath,
+      '--privacy-status',
+      privacyStatus,
+    ];
+    if (payload?.tags && Array.isArray(payload.tags) && payload.tags.length) {
+      args.push('--tags', ...payload.tags);
+    }
+    return new Promise((resolve, reject) => {
+      const proc = spawn(PYTHON_BIN, args, { cwd: PROJECT_ROOT });
+      let stdout = '';
+      let stderr = '';
+      proc.stdout.on('data', (d) => (stdout += d.toString()));
+      proc.stderr.on('data', (d) => (stderr += d.toString()));
+      proc.on('error', (err) => reject(err));
+      proc.on('close', (code) => {
+        if (code === 0) {
+          resolve({ ok: true, stdout });
+        } else {
+          reject(new Error(stderr || `YouTube upload failed (exit ${code})`));
+        }
+      });
+    });
+  });
   ipcMain.handle('video:open-output', async (event, payload) => {
     const target = payload?.path;
     if (!target) throw new Error('path is required');
@@ -411,6 +597,113 @@ function registerHandlers() {
     await shell.openExternal(url);
     return { ok: true };
   });
+  const getSavedSchedulerTasks = () => {
+    try {
+      if (fs.existsSync(SCHEDULE_FILE)) {
+        const data = JSON.parse(fs.readFileSync(SCHEDULE_FILE, 'utf-8'));
+        return Array.isArray(data) ? data : [];
+      }
+    } catch (err) {
+      console.error('Failed to load scheduler file', err);
+    }
+    return [];
+  };
+  ipcMain.handle('scheduler:list', async () => getSavedSchedulerTasks());
+
+  const saveSchedulerTasks = (tasks) => {
+    fs.mkdirSync(SETTINGS_DIR, { recursive: true });
+    fs.writeFileSync(SCHEDULE_FILE, JSON.stringify(tasks, null, 2), 'utf-8');
+  };
+
+  const clearSchedulerTimers = () => {
+    Object.values(schedulerTimers).forEach((t) => clearInterval(t));
+    schedulerTimers = {};
+  };
+
+  const autoTrendArgs = (task) => {
+    const args = [
+      path.join(PROJECT_ROOT, 'scripts', 'auto_trend_pipeline.py'),
+      '--source',
+      task.source || 'youtube',
+      '--max-keywords',
+      String(task.max_keywords || 10),
+      '--theme-id',
+      'freeform_prompt',
+    ];
+    if (currentSettings.youtubeApiKey) {
+      args.push('--youtube-api-key', currentSettings.youtubeApiKey);
+    }
+    const wantUpload = task.auto_upload !== false;
+    if (wantUpload && currentSettings.youtubeClientSecretsPath) {
+      args.push('--youtube-client-secrets', currentSettings.youtubeClientSecretsPath);
+    }
+    if (wantUpload && currentSettings.youtubeCredentialsPath) {
+      args.push('--youtube-credentials', currentSettings.youtubeCredentialsPath);
+    }
+    if (wantUpload && currentSettings.youtubePrivacyStatus) {
+      args.push('--youtube-privacy', normalizeYoutubePrivacyStatus(currentSettings.youtubePrivacyStatus));
+    }
+    return args;
+  };
+
+  const runTaskNow = (task) =>
+    new Promise((resolve, reject) => {
+      const logDir = path.join(PROJECT_ROOT, 'logs', 'scheduler');
+      fs.mkdirSync(logDir, { recursive: true });
+      const ts = new Date().toISOString().replace(/[:.]/g, '-');
+      const logPath = path.join(logDir, `${task.id || 'task'}-${ts}.log`);
+      const args = autoTrendArgs(task);
+      const proc = spawn(PYTHON_BIN, args, { cwd: PROJECT_ROOT });
+      const logStream = fs.createWriteStream(logPath);
+      proc.stdout.on('data', (d) => logStream.write(d));
+      proc.stderr.on('data', (d) => logStream.write(d));
+      proc.on('error', (err) => {
+        logStream.end();
+        reject(err);
+      });
+      proc.on('close', (code) => {
+        logStream.end();
+        if (code === 0) resolve({ ok: true, logPath });
+        else reject(new Error(`exit ${code}, log: ${logPath}`));
+      });
+    });
+
+  const scheduleTasks = (tasks) => {
+    clearSchedulerTimers();
+    tasks
+      .filter((t) => t.enabled !== false)
+      .forEach((task) => {
+        const intervalMin = Math.max(1, Number(task.interval_minutes || 1440));
+        schedulerTimers[task.id] = setInterval(() => {
+          runTaskNow(task).catch((err) => console.error('Scheduled task failed', err));
+        }, intervalMin * 60 * 1000);
+      });
+  };
+
+  ipcMain.handle('scheduler:save', async (_event, tasks) => {
+    saveSchedulerTasks(tasks || []);
+    scheduleTasks(tasks || []);
+    return { ok: true };
+  });
+
+  ipcMain.handle('scheduler:run-now', async (_event, taskId) => {
+    if (!taskId) throw new Error('taskId is required');
+    const tasks = getSavedSchedulerTasks();
+    const task = (tasks || []).find((t) => t.id === taskId);
+    if (!task) throw new Error('task not found');
+    return runTaskNow(task);
+  });
+
+  ipcMain.handle('scheduler:remove', async (_event, taskId) => {
+    const tasks = getSavedSchedulerTasks();
+    const next = (tasks || []).filter((t) => t.id !== taskId);
+    saveSchedulerTasks(next);
+    scheduleTasks(next);
+    return { ok: true };
+  });
+
+  // 初期ロード時にスケジュールをセット
+  scheduleTasks(getSavedSchedulerTasks());
 
   ipcMain.on('yaml:stringify', (event, payload) => {
     try {
@@ -553,6 +846,14 @@ function sanitizeProviderConfigs(rawProviders, legacy = {}) {
   return configs;
 }
 
+function normalizeYoutubePrivacyStatus(value) {
+  const raw = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (YOUTUBE_PRIVACY_OPTIONS.has(raw)) {
+    return raw;
+  }
+  return DEFAULT_AI_SETTINGS.youtubePrivacyStatus;
+}
+
 function sanitizeSettings(payload = {}) {
   const legacyProvider = typeof payload.provider === 'string' ? payload.provider : undefined;
   const activeRaw =
@@ -573,10 +874,17 @@ function sanitizeSettings(payload = {}) {
     pixabayApiKey: typeof payload.pixabayApiKey === 'string' ? payload.pixabayApiKey : '',
     stabilityApiKey: typeof payload.stabilityApiKey === 'string' ? payload.stabilityApiKey : '',
     youtubeApiKey: typeof payload.youtubeApiKey === 'string' ? payload.youtubeApiKey : '',
+    youtubeClientSecretsPath:
+      typeof payload.youtubeClientSecretsPath === 'string' ? payload.youtubeClientSecretsPath : '',
+    youtubeCredentialsPath:
+      typeof payload.youtubeCredentialsPath === 'string' && payload.youtubeCredentialsPath.trim()
+        ? payload.youtubeCredentialsPath.trim()
+        : DEFAULT_AI_SETTINGS.youtubeCredentialsPath,
     youtubeForceVideo:
       typeof payload.youtubeForceVideo === 'string' && payload.youtubeForceVideo.trim()
         ? payload.youtubeForceVideo.trim()
         : '',
+    youtubePrivacyStatus: normalizeYoutubePrivacyStatus(payload.youtubePrivacyStatus),
     bgmDirectory:
       typeof payload.bgmDirectory === 'string' && payload.bgmDirectory.trim()
         ? payload.bgmDirectory.trim()

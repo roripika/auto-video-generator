@@ -9,8 +9,15 @@
   const settingsPixabayKeyInput = document.getElementById('settingsPixabayKey');
   const settingsStabilityKeyInput = document.getElementById('settingsStabilityKey');
   const settingsYoutubeKeyInput = document.getElementById('settingsYoutubeKey');
+  const settingsYoutubeClientSecretsInput = document.getElementById('settingsYoutubeClientSecrets');
+  const settingsYoutubeCredentialsInput = document.getElementById('settingsYoutubeCredentials');
+  const settingsYoutubeClientSecretsBrowseBtn = document.getElementById('settingsYoutubeClientSecretsBrowse');
+  const settingsYoutubeCredentialsBrowseBtn = document.getElementById('settingsYoutubeCredentialsBrowse');
+  const settingsYoutubePrivacySelect = document.getElementById('settingsYoutubePrivacy');
   const settingsBgmDirInput = document.getElementById('settingsBgmDir');
   const settingsYoutubeForceInput = document.getElementById('settingsYoutubeForce');
+  const YT_CREDENTIALS_DEFAULT = '~/.config/auto-video-generator/youtube_credentials.pickle';
+  const settingsYoutubeAuthTestBtn = document.getElementById('settingsYoutubeAuthTestBtn');
   const providerHintEl = document.getElementById('providerHint');
   const settingsSaveBtn = document.getElementById('settingsSaveBtn');
   const externalLinks = document.querySelectorAll('[data-external-link="true"]');
@@ -123,6 +130,11 @@
     settingsPixabayKeyInput.value = settings.pixabayApiKey || '';
     settingsStabilityKeyInput.value = settings.stabilityApiKey || '';
     settingsYoutubeKeyInput.value = settings.youtubeApiKey || '';
+    settingsYoutubeClientSecretsInput.value = settings.youtubeClientSecretsPath || '';
+    settingsYoutubeCredentialsInput.value = settings.youtubeCredentialsPath || YT_CREDENTIALS_DEFAULT;
+    if (settingsYoutubePrivacySelect) {
+      settingsYoutubePrivacySelect.value = settings.youtubePrivacyStatus || 'private';
+    }
     settingsBgmDirInput.value = settings.bgmDirectory || 'assets/bgm';
     settingsYoutubeForceInput.value = settings.youtubeForceVideo || '';
     settingsBaseUrlInput.dataset.dirty = 'false';
@@ -150,6 +162,9 @@
       pixabayApiKey: settingsPixabayKeyInput.value.trim(),
       stabilityApiKey: settingsStabilityKeyInput.value.trim(),
       youtubeApiKey: settingsYoutubeKeyInput.value.trim(),
+      youtubeClientSecretsPath: settingsYoutubeClientSecretsInput.value.trim(),
+      youtubeCredentialsPath: settingsYoutubeCredentialsInput.value.trim(),
+      youtubePrivacyStatus: settingsYoutubePrivacySelect?.value || 'private',
       bgmDirectory: settingsBgmDirInput.value.trim(),
       youtubeForceVideo: settingsYoutubeForceInput.value.trim(),
     };
@@ -167,6 +182,38 @@
 
   settingsProviderSelect.addEventListener('change', handleProviderChanged);
   settingsSaveBtn.addEventListener('click', handleSave);
+  if (settingsYoutubeClientSecretsBrowseBtn) {
+    settingsYoutubeClientSecretsBrowseBtn.addEventListener('click', async () => {
+      const res = await (window.fileDialog?.chooseYoutubeClientSecrets?.() || Promise.resolve({ canceled: true }));
+      if (res && !res.canceled && res.path) {
+        settingsYoutubeClientSecretsInput.value = res.path;
+      }
+    });
+  }
+  if (settingsYoutubeCredentialsBrowseBtn) {
+    settingsYoutubeCredentialsBrowseBtn.addEventListener('click', async () => {
+      const res = await (window.fileDialog?.chooseYoutubeCredentials?.() || Promise.resolve({ canceled: true }));
+      if (res && !res.canceled && res.path) {
+        settingsYoutubeCredentialsInput.value = res.path;
+      }
+    });
+  }
+  if (settingsYoutubeAuthTestBtn) {
+    settingsYoutubeAuthTestBtn.addEventListener('click', async () => {
+      settingsYoutubeAuthTestBtn.disabled = true;
+      settingsYoutubeAuthTestBtn.textContent = '認証中...';
+      try {
+        await window.youtubeAuth.runAuthTest();
+        alert('YouTube OAuth 認証が完了しました。');
+      } catch (err) {
+        console.error(err);
+        alert(`認証に失敗しました: ${err.message || err}`);
+      } finally {
+        settingsYoutubeAuthTestBtn.disabled = false;
+        settingsYoutubeAuthTestBtn.textContent = 'YouTube 認証テスト';
+      }
+    });
+  }
 
   loadSettings();
 })();

@@ -27,6 +27,7 @@
         <select id="settingsProviderOrder">
           <option value="pexels,pixabay">Pexels → Pixabay</option>
           <option value="pixabay,pexels">Pixabay → Pexels</option>
+          <option value="pexels">Pexels のみ</option>
         </select>
       </label>
       <label>検索件数 (最大)
@@ -55,6 +56,35 @@
       <p class="field-hint">
         取得: <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noreferrer" data-external-link="true">Google Cloud Console (YouTube Data API)</a>
       </p>
+      <label>YouTube OAuth client_secrets.json パス
+        <div class="file-input-row">
+          <input id="settingsYoutubeClientSecrets" type="text" placeholder="./client_secrets.json" />
+          <button id="settingsYoutubeClientSecretsBrowse" type="button">選択</button>
+        </div>
+      </label>
+      <p class="field-hint">アップロード時に使用します。リポジトリに含めないでください。</p>
+      <label>YouTube OAuth credentials 保存先
+      <div class="file-input-row">
+        <input
+          id="settingsYoutubeCredentials"
+          type="text"
+          placeholder="~/.config/auto-video-generator/youtube_credentials.pickle"
+        />
+        <button id="settingsYoutubeCredentialsBrowse" type="button">選択</button>
+      </div>
+    </label>
+    <p class="field-hint">初回認証後にトークンを保存するパスです。</p>
+      <label>YouTube 公開範囲
+        <select id="settingsYoutubePrivacy">
+          <option value="private">非公開 (private)</option>
+          <option value="unlisted">限定公開 (unlisted)</option>
+          <option value="public">公開 (public)</option>
+        </select>
+      </label>
+      <p class="field-hint">アップロード時の privacyStatus を変更できます。</p>
+    <div class="settings-actions">
+      <button id="settingsYoutubeAuthTestBtn" type="button">YouTube 認証テスト</button>
+    </div>
       <label>BGM ディレクトリ
         <input id="settingsBgmDir" type="text" placeholder="assets/bgm" />
       </label>

@@ -68,7 +68,7 @@ class ScriptFromBriefGenerator:
             "bgm": {
                 "file": "BGM候補（ファイル名 or URL or ジャンルキーワード例: 背景: lo-fi クイズ風）",
                 "volume_db": -10,
-                "ducking_db": -16,
+                "ducking_db": 0,
                 "license": "必要な場合、出典/ライセンス表記のメモ（例: Pixabay License, CC-BY 表記など）",
             },
             "text_style": {
@@ -140,14 +140,18 @@ class ScriptFromBriefGenerator:
             "（例: pexelsの夕景動画、統計ならシンプルなチャート背景など）。"
             "テロップ位置(font/position)やフォント/色の提案があれば text_style に反映してください（読みやすさ重視の色・位置を選んでください）。"
             "各セクションには背景素材検索に使えるキーワード (bg_keyword) を書いてください。"
+            "必ず全セクション（intro/outro含む）に bg_keyword を入れ、10〜30文字程度の短いキーワードで指定してください。"
             "最初に導入セクションを1本入れ、動画全体で何を紹介するかを1〜2文で説明してください。"
             "特にテロップは『中央寄せのヒーロータイトル型』を推奨します。on_screen_textには改行(\\n)を含めて3〜4行に分割し、1行15〜18文字以内を目安に中央に積み重ねてください。"
             "text_style.positionはデフォルトで x:center, y:center（または center-100 など少し上）を選び、背景の主要被写体を避けるレイアウトを提案してください。"
-            "BGM も提案してください。具体的なファイル名/URLがなければ、ジャンルやムードキーワード（例: lo-fi クイズ系, 軽快トリビア）を `bgm.file` に書いてください。音量(dB)やナレーション時の ducking(dB)を指定し、必要ならライセンス表記メモを `bgm.license` に書いてください。"
+            "BGM も提案してください。具体的なファイル名/URLがなければ、ジャンルやムードキーワード（例: lo-fi クイズ系, 軽快トリビア）を `bgm.file` に書いてください。音量(dB)やナレーション時の ducking(dB)を指定し、必要ならライセンス表記メモを `bgm.license` に書いてください。デフォルトの ducking は 0 です。"
             "Blur（ぼかし）はテキスト可読性を著しく落とすため、基本は付けないでください。どうしても必要な場合は弱い強度で部分的に限定してください。"
             "テロップはセグメント分割して、強調したいキーワードごとに `on_screen_segments` で色・サイズ・フォントを変えてください。各セクションは最低2つのセグメント（例: タグ/見出し＋要約）を含め、改行を使って中央に積み重ねてください。"
+            "テロップの配置はテンプレート化します。`text_layout` は hero_center / hero_middle / lower_third / side_left / side_right のいずれかを設定し、"
+            "rank（強調キーワード）は大きめ（例: 96以上、黄色+黒縁）、本文はやや小さめ（例: 64〜80、白+黒縁）にしてください。"
             "商品の参考画像や図版がある場合は、セクションに `overlays` を入れてください。file（パス/URL）、position（x,y）、必要なら scale/opacity を指定してください。"
             "最後に「まとめ/締め」のアウトロセクション (`outro`) を必ず書き、スクリーンテキストとナレーションを用意してください。"
+            "固有名詞・作品名がローマ字や英語表記の場合、ナレーションでは誤読を避けるためカタカナ表記に置き換えてください。"
             "\\n\\n重要: 出力は必ず有効な JSON オブジェクト1つのみで、前後に説明文やコードフェンス（```）を入れないでください。"
         )
 
@@ -254,8 +258,8 @@ CTA: {cta}
                 script.bgm.file = file_val
                 if bgm_payload.get("volume_db") is not None:
                     script.bgm.volume_db = float(bgm_payload["volume_db"])
-                if bgm_payload.get("ducking_db") is not None:
-                    script.bgm.ducking_db = float(bgm_payload["ducking_db"])
+                # ducking はユーザーが明示変更しない限り 0 に固定する
+                script.bgm.ducking_db = 0.0
                 script.bgm.license = bgm_payload.get("license") or script.bgm.license
             elif not file_val:
                 script.bgm = None

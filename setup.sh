@@ -53,7 +53,10 @@ rm -rf .venv
 "$PYTHON_BIN" -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
-pip install -r requirements.txt || pip install pydantic PyYAML requests Pillow urllib3 pytest yt-dlp
+# requirements に加え、YouTube OAuth / upload 用のライブラリも確実に入れる
+pip install -r requirements.txt || pip install pydantic PyYAML requests Pillow urllib3 pytest yt-dlp google-auth google-auth-oauthlib google-api-python-client
+# 明示的に google-auth / google-api-python-client を補完（requirements が更新されていない環境向け）
+pip install google-auth google-auth-oauthlib google-api-python-client || true
 
 if [[ -x scripts/setup_voicevox.sh ]]; then
   echo "Installing VOICEVOX Engine..."

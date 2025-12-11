@@ -64,11 +64,29 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-audio", action="store_true", help="既存 WAV を再利用し、VOICEVOX 合成をスキップ")
     parser.add_argument("--force-audio", action="store_true", help="既存 WAV があっても再生成する")
     parser.add_argument("--dry-run", action="store_true", help="ffmpeg を実行せずにコマンドのみ表示する")
+    parser.add_argument(
+        "--clear-audio-cache",
+        action="store_true",
+        help="処理前に work/audio を削除してから再生成します。",
+    )
     return parser.parse_args()
 
 
 def ensure_background_assets(script) -> DownloadedAsset | None:
     """背景動画/画像が存在しない場合、AssetFetcher で補完する。"""
+
+    def sanitize_keyword(text: str | None) -> str | None:
+        if not text:
+            return None
+        cleaned = str(text).strip()
+        if not cleaned:
+            return None
+        # Pixabay 400回避: ひらがな/カタカナ/漢字/英数とスペースのみを残し、長すぎるものを切り詰め
+        import re
+
+        cleaned = re.sub(r"[^0-9A-Za-zぁ-んァ-ン一-龠ー\\s]", " ", cleaned)
+        cleaned = re.sub(r"\\s+", " ", cleaned).strip()
+        return cleaned[:50] if cleaned else None
 
     def needs_download(path_value) -> bool:
         if not path_value:
@@ -91,10 +109,16 @@ def ensure_background_assets(script) -> DownloadedAsset | None:
     def fetch_asset(keyword: str | None) -> DownloadedAsset | None:
         if not keyword:
             return None
+        kw = sanitize_keyword(keyword)
+        if not kw:
+            return None
         for kind, allow_ai in ((AssetKind.VIDEO, False), (AssetKind.IMAGE, True)):
-            results = fetcher.fetch(keyword, kind=kind, max_results=1, allow_ai=allow_ai)
-            if results:
-                return results[0]
+            try:
+                results = fetcher.fetch(kw, kind=kind, max_results=1, allow_ai=allow_ai)
+                if results:
+                    return results[0]
+            except Exception as err:
+                print(f"[WARN] fetch_asset failed (kw={kw}, kind={kind}): {err}")
         return None
 
     global_asset: DownloadedAsset | None = None
@@ -128,6 +152,27 @@ def ensure_background_assets(script) -> DownloadedAsset | None:
             print(f"[INFO] 背景素材を自動取得しました（{section.id}）: {asset.path}")
         else:
             print(f"[WARN] 背景素材が見つかりませんでした（{section.id}, keyword={section_keyword}）。")
+
+    # 最終チェック: 背景が未解決なら既存のmp4をフォールバック
+    def find_local_bg() -> Optional[Path]:
+        candidates = []
+        for rel in ["assets", "assets/cache", "outputs", "work"]:
+            root = PROJECT_ROOT / rel
+            if root.exists():
+                candidates.extend(root.rglob("*.mp4"))
+        return candidates[0] if candidates else None
+
+    if not Path(script.video.bg).exists():
+        fallback = find_local_bg()
+        if fallback:
+            script.video.bg = str(fallback)
+            print(f"[WARN] 背景素材が見つからないためローカルの {fallback} を使用します。")
+        else:
+            raise SystemExit("[ERROR] 背景素材が見つかりませんでした。assets/ に動画を配置するか、bg を指定してください。")
+
+    for section in getattr(script, "sections", []):
+        if not getattr(section, "bg", None) or not Path(section.bg).exists():
+            section.bg = script.video.bg
 
     return global_asset
 
@@ -164,7 +209,7 @@ def ensure_bgm_track(script) -> Path | None:
         if script.bgm.volume_db is None:
             script.bgm.volume_db = -12
         if script.bgm.ducking_db is None:
-            script.bgm.ducking_db = -18
+            script.bgm.ducking_db = 0
         print(f"[INFO] BGM を YouTube Audio Library から自動取得しました: {target}")
         return target
 
@@ -200,7 +245,7 @@ def ensure_bgm_track(script) -> Path | None:
         if script.bgm.volume_db is None:
             script.bgm.volume_db = -12
         if script.bgm.ducking_db is None:
-            script.bgm.ducking_db = -18
+            script.bgm.ducking_db = 0
     print(f"[INFO] BGM を自動選択しました: {selected}")
     return selected
 
@@ -349,6 +394,16 @@ def main() -> None:
     args = parse_args()
     script = load_script(args.script)
     config = load_config(args.config)
+    if args.clear_audio_cache:
+        try:
+            audio_dir = config.work_dir / "audio"
+            if audio_dir.exists():
+                import shutil
+
+                shutil.rmtree(audio_dir)
+                print(f"[INFO] Cleared audio cache: {audio_dir}")
+        except Exception as err:
+            print(f"[WARN] Failed to clear audio cache: {err}")
 
     bg_asset = ensure_background_assets(script)
     ensure_bgm_track(script)

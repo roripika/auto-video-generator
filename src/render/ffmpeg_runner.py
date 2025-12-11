@@ -7,6 +7,36 @@ from typing import List
 from src.models import ScriptModel, TextPosition, TextStyle
 from src.timeline import TimelineSummary
 
+_TEXT_LAYOUTS_CACHE = None
+
+
+def _load_text_layouts() -> dict:
+    global _TEXT_LAYOUTS_CACHE
+    if _TEXT_LAYOUTS_CACHE is not None:
+        return _TEXT_LAYOUTS_CACHE
+    layouts_path = Path(__file__).resolve().parents[2] / "configs" / "text_layouts.yaml"
+    layouts = {}
+    if layouts_path.exists():
+        try:
+            import yaml  # type: ignore
+
+            data = yaml.safe_load(layouts_path.read_text(encoding="utf-8"))
+            if isinstance(data, list):
+                for item in data:
+                    if isinstance(item, dict) and item.get("id"):
+                        layouts[item["id"]] = item
+        except Exception:
+            pass
+    _TEXT_LAYOUTS_CACHE = layouts
+    return _TEXT_LAYOUTS_CACHE
+
+
+def _get_layout(layout_id: str | None) -> dict:
+    layouts = _load_text_layouts()
+    if layout_id and layout_id in layouts:
+        return layouts[layout_id]
+    return layouts.get("hero_center", {})
+
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp"}
 
 
@@ -78,6 +108,30 @@ def _segment_style(base: TextStyle, segment_style: TextStyle | None) -> TextStyl
         if value is not None:
             setattr(merged, field, value)
     return merged
+
+
+def _apply_tier_style(style: TextStyle, tier: str) -> TextStyle:
+    styled = style.model_copy(deep=True)
+    if tier == "emphasis":
+        styled.fontsize = max(styled.fontsize or 0, 96)
+        styled.fill = "#FFE65A"
+        styled.stroke.color = "#000000"
+        styled.stroke.width = max(styled.stroke.width or 0, 6)
+    elif tier == "connector":
+        styled.fontsize = max(styled.fontsize or 0, 72)
+        styled.fill = "#FFFFFF"
+        styled.stroke.color = "#000000"
+        styled.stroke.width = max(styled.stroke.width or 0, 4)
+    else:  # body
+        styled.fontsize = max(styled.fontsize or 0, 64)
+        styled.fill = "#FFFFFF"
+        styled.stroke.color = "#000000"
+        styled.stroke.width = max(styled.stroke.width or 0, 4)
+    return styled
+
+
+def _split_lines(text: str) -> List[str]:
+    return [ln for ln in text.split("\n") if ln.strip()]
 
 
 def _build_drawtext_filters(style: TextStyle, timeline: TimelineSummary, script: ScriptModel) -> str:
@@ -178,6 +232,7 @@ def _build_section_videos(
     filters: List[str] = []
     labels: List[str] = []
     section_map = {section.id: section for section in script.sections}
+    target_w, target_h = script.video.width, script.video.height
 
     for idx, section_tl in enumerate(timeline.sections):
         section = section_map.get(section_tl.id)
@@ -192,34 +247,67 @@ def _build_section_videos(
 
         base_label = f"[{input_idx}:v]"
         # Trim/loop per section duration. Using trim to avoid excessive length.
-        section_label = f"[vsec{idx}]"
-        filters.append(f"{base_label}trim=duration={duration:.3f},setpts=PTS-STARTPTS{section_label}")
+        trimmed_label = f"[vsec{idx}]"
+        filters.append(f"{base_label}trim=duration={duration:.3f},setpts=PTS-STARTPTS{trimmed_label}")
+
+        # Scale/crop to target video dimensions upfront so drawtext uses final resolution.
+        section_label = f"[vscaled{idx}]"
+        filters.append(
+            f"{trimmed_label}scale={target_w}:{target_h}:force_original_aspect_ratio=decrease,"
+            f"pad={target_w}:{target_h}:(ow-iw)/2:(oh-ih)/2,setsar=1{section_label}"
+        )
 
         # Drawtext for this section only (supports segments)
         style = script.text_style
+        layout = _get_layout(getattr(section, "text_layout", None) if section else None)
+        base_pos = TextPosition(
+            x=str(layout.get("base_position", {}).get("x", "center")),
+            y=str(layout.get("base_position", {}).get("y", "center-120")),
+        )
+        line_gap = int(layout.get("line_gap", 24))
+        align = layout.get("align", "center")
+        rank_offset = layout.get("rank_offset", {})
+        body_offset = layout.get("body_offset", {})
+
         if section and section.on_screen_segments:
-            line_offset = 0
             current_label = section_label
+            line_offset = 0
             for seg_idx, seg in enumerate(section.on_screen_segments):
-                seg_style = _segment_style(style, seg.style)
-                drawtext = (
-                    "drawtext="
-                    f"fontfile='{seg_style.font}':"
-                    f"text='{_escape_text(seg.text)}':"
-                    f"fontsize={seg_style.fontsize}:"
-                    f"fontcolor={seg_style.fill}:"
-                    f"borderw={seg_style.stroke.width}:"
-                    f"bordercolor={seg_style.stroke.color}:"
-                    f"x={_format_position(seg_style.position, 'x')}:"
-                    f"y={_format_position(seg_style.position, 'y')}+{line_offset}:"
-                    f"enable='between(t,0.00,{duration:.2f})'"
-                )
-                out_label = f"[vtxt{idx}_{seg_idx}]"
-                filters.append(f"{current_label}{drawtext}{out_label}")
-                current_label = out_label
-                line_offset += seg_style.fontsize + 8
+                tier = "emphasis" if seg_idx == 0 else "body"
+                seg_style = _apply_tier_style(_segment_style(style, seg.style), tier)
+                offset = rank_offset if seg_idx == 0 else body_offset
+                off_x = offset.get("x", 0)
+                off_y = offset.get("y", 0)
+                for line in _split_lines(_escape_text(seg.text)):
+                    x_expr = _format_position(base_pos, "x")
+                    if align == "left":
+                        x_expr = f"{off_x + 60}"
+                    elif align == "right":
+                        x_expr = f"w-text_w-{off_x + 60}"
+                    y_expr = f"{_format_position(base_pos, 'y')}+{line_offset + off_y}"
+                    drawtext = (
+                        "drawtext="
+                        f"fontfile='{seg_style.font}':"
+                        f"text='{line}':"
+                        f"fontsize={seg_style.fontsize}:"
+                        f"fontcolor={seg_style.fill}:"
+                        f"borderw={seg_style.stroke.width}:"
+                        f"bordercolor={seg_style.stroke.color}:"
+                        f"x={x_expr}:"
+                        f"y={y_expr}:"
+                        f"enable='between(t,0.00,{duration:.2f})'"
+                    )
+                    out_label = f"[vtxt{idx}_{seg_idx}_{line_offset}]"
+                    filters.append(f"{current_label}{drawtext}{out_label}")
+                    current_label = out_label
+                    line_offset += seg_style.fontsize + line_gap
             section_label = current_label
         else:
+            x_expr = _format_position(base_pos, "x")
+            if align == "left":
+                x_expr = "60"
+            elif align == "right":
+                x_expr = "w-text_w-60"
             drawtext = (
                 "drawtext="
                 f"fontfile='{style.font}':"
@@ -228,8 +316,8 @@ def _build_section_videos(
                 f"fontcolor={style.fill}:"
                 f"borderw={style.stroke.width}:"
                 f"bordercolor={style.stroke.color}:"
-                f"x={_format_position(style.position, 'x')}:"
-                f"y={_format_position(style.position, 'y')}:"
+                f"x={x_expr}:"
+                f"y={_format_position(base_pos, 'y')}:"
                 f"enable='between(t,0.00,{duration:.2f})'"
             )
             filters.append(f"{section_label}{drawtext}[vtxt{idx}]")
@@ -269,15 +357,6 @@ def _build_section_videos(
                 out_label = f"[vov{idx}_{ov_idx}]"
                 filters.append(f"{section_label}{current}overlay=x={xpos}:y={ypos}:format=auto:shortest=1{out_label}")
                 section_label = out_label
-
-        # Scale/crop to target video dimensions
-        w, h = script.video.width, script.video.height
-        crop_label = f"[vscaled{idx}]"
-        filters.append(
-            f"{section_label}scale={w}:{h}:force_original_aspect_ratio=decrease,"
-            f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2,setsar=1{crop_label}"
-        )
-        section_label = crop_label
 
         labels.append(section_label)
 

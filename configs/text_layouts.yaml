@@ -1,0 +1,39 @@
+- id: hero_center
+  description: ヒーロータイトル（中央上寄せ）
+  base_position: { x: center, y: center-120 }
+  line_gap: 28
+  rank_offset: { x: 0, y: 0 }
+  body_offset: { x: 0, y: 72 }
+  align: center
+
+- id: hero_middle
+  description: ヒーロータイトル（中央）
+  base_position: { x: center, y: center }
+  line_gap: 30
+  rank_offset: { x: 0, y: -20 }
+  body_offset: { x: 0, y: 50 }
+  align: center
+
+- id: lower_third
+  description: ローワーサード（中央下）
+  base_position: { x: center, y: bottom-220 }
+  line_gap: 24
+  rank_offset: { x: 0, y: 0 }
+  body_offset: { x: 0, y: 64 }
+  align: center
+
+- id: side_left
+  description: 左寄せ（被写体が右にいる場合）
+  base_position: { x: left+120, y: center-40 }
+  line_gap: 26
+  rank_offset: { x: 0, y: 0 }
+  body_offset: { x: 0, y: 72 }
+  align: left
+
+- id: side_right
+  description: 右寄せ（被写体が左にいる場合）
+  base_position: { x: right-120, y: center-40 }
+  line_gap: 26
+  rank_offset: { x: 0, y: 0 }
+  body_offset: { x: 0, y: 72 }
+  align: right

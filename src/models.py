@@ -60,7 +60,7 @@ class OverlayImage(BaseModel):
 class BGMAudio(BaseModel):
     file: str
     volume_db: float = -16
-    ducking_db: float = -6
+    ducking_db: float = 0
     license: Optional[str] = None
 
 
@@ -86,6 +86,7 @@ class Section(BaseModel):
     id: str
     on_screen_text: str
     on_screen_segments: List[OnScreenSegment] = Field(default_factory=list)
+    text_layout: Optional[str] = None
     overlays: List[OverlayImage] = Field(default_factory=list)
     narration: str
     duration_hint_sec: Optional[float] = None

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <title>定期実行タスク</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="settings-body">
+    <section class="settings-panel">
+      <h1>定期実行タスク</h1>
+      <p class="field-hint">トレンド→台本生成→動画生成→（任意で）YouTubeアップロードまでを自動実行します。</p>
+      <div class="asset-actions" style="justify-content: space-between; align-items: center;">
+        <button id="taskAddBtn" class="primary">タスクを追加</button>
+        <button id="taskSaveBtn">保存</button>
+      </div>
+      <ul id="taskList" class="task-list"></ul>
+      <p class="field-hint" id="taskStatus"></p>
+    </section>
+    <script src="scheduler.js"></script>
+  </body>
+</html>

@@ -4,43 +4,57 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
 import time
-import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Iterable, List, Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
+try:
+    from scripts.fetch_trend_ideas_llm import fetch_trend_ideas_via_llm  # type: ignore
+except Exception:
+    fetch_trend_ideas_via_llm = None
 
 
-def fetch_trending_keywords(geo: str) -> List[str]:
-    """Fetch daily trending search keywords (up to 100) from Google Trends RSS."""
-    url = f"https://trends.google.com/trendingsearches/daily/rss?geo={geo.upper()}"
+def fetch_trending_keywords_youtube(api_key: str, geo: str) -> List[str]:
+    """Fetch trending video titles/tags via YouTube Data API as a fallback."""
+    if not api_key:
+        return []
     try:
         import requests
 
-        resp = requests.get(url, timeout=10)
+        params = {
+            "part": "snippet",
+            "chart": "mostPopular",
+            "regionCode": geo.upper(),
+            "maxResults": 25,
+            "key": api_key,
+        }
+        resp = requests.get("https://www.googleapis.com/youtube/v3/videos", params=params, timeout=10)
         resp.raise_for_status()
-        root = ET.fromstring(resp.content)
-        titles = [item.findtext("title") or "" for item in root.findall(".//item")]
-        # First <title> is feed title; skip empty and deduplicate while preserving order.
-        seen = set()
+        data = resp.json()
         keywords: List[str] = []
-        for title in titles:
-            title = title.strip()
-            if not title or title in seen:
-                continue
-            seen.add(title)
-            keywords.append(title)
-            if len(keywords) >= 100:  # 固定で上位100件まで
-                break
+        seen = set()
+        for item in data.get("items", []):
+            title = (item.get("snippet", {}) or {}).get("title") or ""
+            tags = (item.get("snippet", {}) or {}).get("tags") or []
+            candidates = [title] + list(tags)
+            for cand in candidates:
+                cand = cand.strip()
+                if not cand or cand in seen:
+                    continue
+                seen.add(cand)
+                keywords.append(cand)
+                if len(keywords) >= 100:
+                    return keywords
         return keywords
     except Exception as err:
-        print(f"[WARN] Failed to fetch Google Trends RSS: {err}")
+        print(f"[WARN] Failed to fetch YouTube trending keywords: {err}")
         return []
 
 
@@ -111,14 +125,21 @@ def select_hot_keywords_via_llm(keywords: List[str], top_n: int) -> List[str]:
         return keywords[:top_n]
 
 
-def run_script_generation(keyword: str, brief_template: str, theme_id: str, sections: int, output_dir: Path) -> Optional[Path]:
+def run_script_generation(
+    keyword: str,
+    brief_template: str,
+    theme_id: str,
+    sections: int,
+    output_dir: Path,
+    brief_override: Optional[str] = None,
+) -> Optional[Path]:
     """Invoke generate_script_from_brief.py to produce a Script YAML for the keyword."""
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     slug = slugify(keyword)
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / f"{slug}_{ts}.yaml"
 
-    brief = brief_template.format(keyword=keyword)
+    brief = brief_override or brief_template.format(keyword=keyword)
     cmd = [
         sys.executable,
         str(PROJECT_ROOT / "scripts" / "generate_script_from_brief.py"),
@@ -175,7 +196,18 @@ def clear_audio_cache(work_dir: Path) -> None:
                 print(f"[WARN] Failed to clear cache {target}: {err}")
 
 
-def maybe_upload_to_youtube(video_path: Path, title: str, description: str, tags: Iterable[str], client_secrets: Optional[Path], credentials_path: Optional[Path]) -> bool:
+PRIVACY_CHOICES = {"private", "unlisted", "public"}
+
+
+def maybe_upload_to_youtube(
+    video_path: Path,
+    title: str,
+    description: str,
+    tags: Iterable[str],
+    client_secrets: Optional[Path],
+    credentials_path: Optional[Path],
+    privacy_status: str = "private",
+) -> bool:
     """Upload video to YouTube if dependencies and credentials are present."""
     if not client_secrets:
         print("[INFO] YouTube upload skipped: --youtube-client-secrets not provided.")
@@ -211,6 +243,9 @@ def maybe_upload_to_youtube(video_path: Path, title: str, description: str, tags
                 pickle.dump(creds, token)
 
     youtube = build("youtube", "v3", credentials=creds)
+    privacy = (privacy_status or "private").lower()
+    if privacy not in PRIVACY_CHOICES:
+        privacy = "private"
     body = {
         "snippet": {
             "title": title,
@@ -218,7 +253,7 @@ def maybe_upload_to_youtube(video_path: Path, title: str, description: str, tags
             "tags": list(tags),
             "categoryId": "22",  # People & Blogs
         },
-        "status": {"privacyStatus": "private"},
+        "status": {"privacyStatus": privacy},
     }
     media = MediaFileUpload(str(video_path), chunksize=-1, resumable=True)
     print(f"[INFO] Uploading {video_path} to YouTube...")
@@ -234,24 +269,59 @@ def maybe_upload_to_youtube(video_path: Path, title: str, description: str, tags
 
 
 def run_once(args: argparse.Namespace) -> None:
-    keywords = fetch_trending_keywords(args.geo)
-    if not keywords:
-        print("[WARN] No trending keywords fetched; skipping this cycle.")
-        return
-    picked_keywords = select_hot_keywords_via_llm(keywords, top_n=args.max_keywords)
+    tasks: list[dict] = []
+    if args.source == "llm":
+        if not fetch_trend_ideas_via_llm:
+            print("[ERROR] LLMトレンド取得モジュールが読み込めませんでした。scripts/fetch_trend_ideas_llm.py を確認してください。")
+            return
+        try:
+            data = fetch_trend_ideas_via_llm(max_ideas=args.max_keywords, language=args.language)
+        except Exception as err:
+            print(f"[ERROR] LLMからトレンド取得に失敗しました: {err}")
+            return
+        ideas = data.get("ideas", []) if isinstance(data, dict) else []
+        if not ideas:
+            print("[WARN] LLM からトレンドアイデアが取得できませんでした。")
+            return
+        for idea in ideas:
+            kw = idea.get("keyword") or idea.get("title") or "trend"
+            brief = idea.get("brief") or args.brief_template.format(keyword=kw)
+            theme_id = idea.get("suggested_theme_id") or args.theme_id
+            tasks.append({"keyword": kw, "brief": brief, "theme_id": theme_id})
+    else:
+        if not args.youtube_api_key:
+            print("[WARN] YouTube API key is required for trending fetch. Skipping.")
+            return
+        keywords = fetch_trending_keywords_youtube(args.youtube_api_key, args.geo)
+        if not keywords:
+            print("[WARN] No trending keywords fetched; skipping this cycle.")
+            return
+        picked_keywords = select_hot_keywords_via_llm(keywords, top_n=args.max_keywords)
+        for kw in picked_keywords:
+            tasks.append(
+                {
+                    "keyword": kw,
+                    "brief": args.brief_template.format(keyword=kw),
+                    "theme_id": args.theme_id,
+                }
+            )
 
     output_script_dir = PROJECT_ROOT / "scripts" / "generated" / "auto_trend"
     # Clear audio/cache before each cycle if requested
     if args.clear_cache:
         clear_audio_cache(PROJECT_ROOT / "work")
 
-    for kw in picked_keywords:
+    for item in tasks:
+        kw = item["keyword"]
+        brief = item["brief"]
+        theme_id = item["theme_id"]
         script_path = run_script_generation(
             keyword=kw,
             brief_template=args.brief_template,
-            theme_id=args.theme_id,
+            theme_id=theme_id,
             sections=args.sections,
             output_dir=output_script_dir,
+            brief_override=brief,
         )
         if not script_path:
             continue
@@ -270,23 +340,40 @@ def run_once(args: argparse.Namespace) -> None:
                 tags=tags,
                 client_secrets=args.youtube_client_secrets,
                 credentials_path=args.youtube_credentials,
+                privacy_status=args.youtube_privacy,
             )
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Fetch Google Trends keywords -> generate script -> render video -> (optional) upload to YouTube."
+        description="Fetch trending keywords (YouTube mostPopular) -> generate script -> render video -> (optional) upload to YouTube."
     )
-    parser.add_argument("--geo", default="JP", help="Google Trends geo code (e.g., JP, US).")
+    parser.add_argument("--geo", default="JP", help="Region code (e.g., JP, US).")
+    parser.add_argument(
+        "--youtube-api-key",
+        default=os.environ.get("YOUTUBE_API_KEY", ""),
+        help="YouTube Data API key (mostPopular fallback when Trends RSS fails).",
+    )
     parser.add_argument(
         "--max-keywords",
         type=int,
-        default=100,
+        default=10,
         help="Number of keywords to pass to AI selection (top N picked from fetched 100).",
     )
     parser.add_argument(
+        "--source",
+        choices=["youtube", "llm"],
+        default="youtube",
+        help="トレンド取得元を指定（YouTube mostPopular か LLM アイデア生成）。",
+    )
+    parser.add_argument("--language", default="ja", help="LLMソース時の言語ヒント (default: ja)")
+    parser.add_argument(
         "--brief-template",
-        default="「{keyword}」について、視聴者が知りたいポイントをランキング形式で5つ紹介してください。驚きと実用性を意識した台本を作ってください。",
+        default=(
+            "「{keyword}」について解説してください。導入(intro)でフックを入れ、"
+            "本編は複数セクションに分けて要点を解説し、最後(outro)でまとめとCTAを入れてください。"
+            "セクション数は内容に合わせてAIが決めて構いません。"
+        ),
         help="Template for AI brief. '{keyword}' will be replaced with the trend keyword.",
     )
     parser.add_argument("--theme-id", default="lifehack_surprise", help="Theme ID under configs/themes/.")
@@ -304,6 +391,12 @@ def parse_args() -> argparse.Namespace:
         "--youtube-credentials",
         type=Path,
         help="Path to store OAuth credentials for YouTube upload (optional but recommended when uploading).",
+    )
+    parser.add_argument(
+        "--youtube-privacy",
+        choices=["private", "unlisted", "public"],
+        default="private",
+        help="Upload privacyStatus when sending to YouTube (default: private).",
     )
     parser.add_argument(
         "--clear-cache",

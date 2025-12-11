@@ -15,6 +15,9 @@ settings/
 tools/
 .env
 .vscode/
+client_secrets.json
+client_secret_*.json
+*.pickle
 
 # Generated caches & logs
 assets/

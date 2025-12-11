@@ -16,6 +16,7 @@
         <button id="openScriptBtn">開く</button>
         <button id="saveScriptBtn" class="primary">保存</button>
         <button id="saveScriptAsBtn">別名で保存</button>
+        <button id="schedulerBtn" class="ghost">定期実行</button>
       </div>
     </header>
 
@@ -30,6 +31,7 @@
           セクション数
           <input id="aiSectionsInput" type="number" min="3" max="10" value="5" />
         </label>
+        <button id="trendBriefBtn" class="ghost">トレンドから文言生成</button>
         <button id="aiGenerateBtn" class="primary">AI で生成</button>
       </div>
       <p class="ai-hint">テーマは上部セレクトで選択したものが利用されます。</p>
@@ -120,6 +122,11 @@
       <div class="video-controls">
         <button id="videoGenerateBtn" class="primary">動画を生成</button>
         <button id="videoOpenBtn" disabled>生成動画を開く</button>
+        <button id="videoUploadBtn" class="ghost" disabled>YouTubeへアップロード</button>
+        <label class="inline-checkbox">
+          <input type="checkbox" id="clearAudioOnVideo" checked />
+          <span>音声キャッシュをクリア</span>
+        </label>
       </div>
       <textarea id="videoLog" class="video-log" readonly></textarea>
     </section>
@@ -131,10 +138,17 @@
         <button id="addSectionBtn">セクション追加</button>
       </section>
 
-      <section class="panel panel--form">
-        <h2>セクション編集</h2>
-        <div id="sectionForm" class="form-grid"></div>
-      </section>
+  <section class="panel panel--form">
+    <h2>セクション編集</h2>
+    <div id="sectionForm" class="form-grid"></div>
+    <div class="section-preview">
+      <div class="section-preview__label">プレビュー (50% 縮尺・配置のみ)</div>
+      <div id="sectionPreview" class="section-preview__canvas">
+        <div id="sectionPreviewBg" class="section-preview__bg"></div>
+        <div id="sectionPreviewTexts" class="section-preview__texts"></div>
+      </div>
+    </div>
+  </section>
 
       <section class="panel panel--preview">
         <h2>プレビュー</h2>

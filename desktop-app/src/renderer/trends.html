@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <title>トレンド候補</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="settings-body">
+    <section class="settings-panel">
+      <h1>トレンド候補</h1>
+      <p class="field-hint">YouTubeの人気動画タイトルからキーワード候補を取得します。</p>
+      <div class="asset-actions" style="margin-bottom:8px;">
+        <button id="trendFetchBtn" class="primary">最新トレンドを取得</button>
+        <button id="trendApplySelectedBtn" type="button">選択をブリーフに送る</button>
+      </div>
+      <ul id="trendList" class="asset-results trends-list"></ul>
+      <p class="field-hint" id="trendStatus"></p>
+    </section>
+    <script src="trends.js"></script>
+  </body>
+</html>

@@ -144,6 +144,8 @@ npm start
 - **自動トレンド動画投稿機能** (`scripts/auto_trend_pipeline.py`): GoogleトレンドのデイリーRSSから話題キーワードを取得し、`generate_script_from_brief.py` と `generate_video.py` を自動で呼び出して動画を生成する追加ユーティリティ。任意で YouTube へのアップロードも試行できます。主なフローとオプション:
   - フロー: 指定時間ごとに起動 → トレンド上位（例: 100件）取得 → AIが話題になりそうなネタを選びブリーフ生成 → AI台本生成で YAML 作成 → 音声キャッシュ等をクリア → 動画生成 → YouTube API で自動アップロード（任意）
   - `--geo JP` : トレンド取得対象の地域コード。
+  - 備考: トレンド取得は日本向け RSS (`trends.google.co.jp/...`) を優先利用しています。`google.com` ドメインでは地域やネットワークによって 404 が返る場合があるため、日本以外の環境では取得できないことがあります。
+  - `--source youtube` / `--source llm` : トレンド取得元を選択。`llm` は LLM からトレンドネタをJSONで生成するモード。
   - `--max-keywords N` : 1サイクルで処理するキーワード数。
   - `--brief-template "…{keyword}…"` : キーワードを埋め込むブリーフのテンプレート。
   - `--theme-id lifehack_surprise` : 使用するテーマ ID。

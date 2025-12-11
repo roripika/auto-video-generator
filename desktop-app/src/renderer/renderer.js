@@ -9,6 +9,7 @@
   const aiBriefInput = document.getElementById('aiBriefInput');
   const aiSectionsInput = document.getElementById('aiSectionsInput');
   const aiGenerateBtn = document.getElementById('aiGenerateBtn');
+  const trendBriefBtn = document.getElementById('trendBriefBtn');
   const bgPathInput = document.getElementById('bgPathInput');
   const bgBrowseBtn = document.getElementById('bgBrowseBtn');
   const assetKeywordInput = document.getElementById('assetKeywordInput');
@@ -39,13 +40,19 @@
   const timelineSummaryEl = document.getElementById('timelineSummary');
   const videoGenerateBtn = document.getElementById('videoGenerateBtn');
   const videoOpenBtn = document.getElementById('videoOpenBtn');
+  const videoUploadBtn = document.getElementById('videoUploadBtn');
   const videoLogEl = document.getElementById('videoLog');
+  const schedulerBtn = document.getElementById('schedulerBtn');
+  const clearAudioOnVideo = document.getElementById('clearAudioOnVideo');
   const voiceSpeakerSelect = document.getElementById('voiceSpeakerSelect');
   const voiceSpeakerLabel = document.getElementById('voiceSpeakerLabel');
   const infoButtons = document.querySelectorAll('.info-btn');
   const statusBadge = document.createElement('span');
   statusBadge.className = 'status';
   document.querySelector('.app-header').appendChild(statusBadge);
+  const sectionPreviewEl = document.getElementById('sectionPreview');
+  const sectionPreviewBgEl = document.getElementById('sectionPreviewBg');
+  const sectionPreviewTextsEl = document.getElementById('sectionPreviewTexts');
 
   const settingsBtn = document.getElementById('settingsBtn');
   let modalProviderConfigs = {};
@@ -111,6 +118,172 @@
     { id: 3, name: 'ずんだもん(ノーマル)' },
     { id: 1, name: '四国めたん(ノーマル)' },
   ];
+
+  const PREVIEW_BASE_W = 1920;
+  const PREVIEW_BASE_H = 1080;
+  const TEXT_LAYOUTS = {
+    hero_center: {
+      id: 'hero_center',
+      base_position: { x: 'center', y: 'center-120' },
+      line_gap: 28,
+      rank_offset: { x: 0, y: 0 },
+      body_offset: { x: 0, y: 72 },
+      align: 'center',
+    },
+    hero_middle: {
+      id: 'hero_middle',
+      base_position: { x: 'center', y: 'center' },
+      line_gap: 30,
+      rank_offset: { x: 0, y: -20 },
+      body_offset: { x: 0, y: 50 },
+      align: 'center',
+    },
+    lower_third: {
+      id: 'lower_third',
+      base_position: { x: 'center', y: 'bottom-220' },
+      line_gap: 24,
+      rank_offset: { x: 0, y: 0 },
+      body_offset: { x: 0, y: 64 },
+      align: 'center',
+    },
+    side_left: {
+      id: 'side_left',
+      base_position: { x: 'left+120', y: 'center-40' },
+      line_gap: 26,
+      rank_offset: { x: 0, y: 0 },
+      body_offset: { x: 0, y: 72 },
+      align: 'left',
+    },
+    side_right: {
+      id: 'side_right',
+      base_position: { x: 'right-120', y: 'center-40' },
+      line_gap: 26,
+      rank_offset: { x: 0, y: 0 },
+      body_offset: { x: 0, y: 72 },
+      align: 'right',
+    },
+  };
+
+  const baseTextStyle = () => {
+    const base = state.script?.text_style || {};
+    return {
+      font: base.font || 'Noto Sans JP',
+      fontsize: base.fontsize || 64,
+      fill: base.fill || '#FFFFFF',
+      strokeColor: base.stroke?.color || '#000000',
+      strokeWidth: base.stroke?.width ?? 4,
+    };
+  };
+
+  const mergeSegmentStylePreview = (base, segStyle = {}) => {
+    const merged = { ...base };
+    if (segStyle.font) merged.font = segStyle.font;
+    if (segStyle.fontsize) merged.fontsize = segStyle.fontsize;
+    if (segStyle.fill) merged.fill = segStyle.fill;
+    if (segStyle.stroke?.color) merged.strokeColor = segStyle.stroke.color;
+    if (segStyle.stroke?.width !== undefined) merged.strokeWidth = segStyle.stroke.width;
+    return merged;
+  };
+
+  const applyTierPreviewStyle = (style, tier) => {
+    const applied = { ...style };
+    if (tier === 'emphasis') {
+      applied.fontsize = Math.max(applied.fontsize || 0, 96);
+      applied.fill = '#FFE65A';
+      applied.strokeColor = '#000000';
+      applied.strokeWidth = Math.max(applied.strokeWidth || 0, 6);
+    } else if (tier === 'connector') {
+      applied.fontsize = Math.max(applied.fontsize || 0, 72);
+      applied.fill = '#FFFFFF';
+      applied.strokeColor = '#000000';
+      applied.strokeWidth = Math.max(applied.strokeWidth || 0, 4);
+    } else {
+      applied.fontsize = Math.max(applied.fontsize || 0, 64);
+      applied.fill = '#FFFFFF';
+      applied.strokeColor = '#000000';
+      applied.strokeWidth = Math.max(applied.strokeWidth || 0, 4);
+    }
+    return applied;
+  };
+
+  const resolvePositionValue = (raw, axis) => {
+    if (typeof raw === 'number') return raw;
+    const token = String(raw || '').trim().toLowerCase();
+    if (!token) return axis === 'x' ? PREVIEW_BASE_W / 2 : PREVIEW_BASE_H / 2;
+    const num = Number(token);
+    if (!Number.isNaN(num)) return num;
+    const anchorMatch = token.match(/^(left|right|top|bottom|center)([+-]\d+)?$/);
+    if (anchorMatch) {
+      const [, anchor, deltaRaw] = anchorMatch;
+      const delta = Number(deltaRaw || 0) || 0;
+      const baseMap = {
+        left: 0,
+        right: axis === 'x' ? PREVIEW_BASE_W : 0,
+        top: 0,
+        bottom: axis === 'y' ? PREVIEW_BASE_H : 0,
+        center: axis === 'x' ? PREVIEW_BASE_W / 2 : PREVIEW_BASE_H / 2,
+      };
+      return (baseMap[anchor] ?? 0) + delta;
+    }
+    return axis === 'x' ? PREVIEW_BASE_W / 2 : PREVIEW_BASE_H / 2;
+  };
+
+  const approximateTextWidth = (text, fontSize) => {
+    const chars = Math.max(1, (text || '').length);
+    return chars * fontSize * 0.55;
+  };
+
+  const previewBackgroundUrl = (path) => {
+    if (!path) return '';
+    return path.startsWith('/') ? `file://${path}` : path;
+  };
+
+  const fetchYoutubeTrendingTitles = async (apiKey, geo = 'JP', limit = 8) => {
+    if (!apiKey) return [];
+    const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet&chart=mostPopular&regionCode=${encodeURIComponent(
+      geo
+    )}&maxResults=${limit}&key=${encodeURIComponent(apiKey)}`;
+    try {
+      const resp = await fetch(url, { cache: 'no-cache' });
+      if (!resp.ok) throw new Error(`status ${resp.status}`);
+      const data = await resp.json();
+      const seen = new Set();
+      const titles = [];
+      (data.items || []).forEach((item) => {
+        const title = item?.snippet?.title;
+        if (title && !seen.has(title)) {
+          seen.add(title);
+          titles.push(title);
+        }
+      });
+      return titles.slice(0, limit);
+    } catch (err) {
+      console.warn('Failed to fetch YouTube trending', err);
+      return [];
+    }
+  };
+
+  async function handleTrendBriefGenerate() {
+    if (!aiBriefInput) return;
+    setStatus('トレンド候補を取得中... (YouTube)');
+    const ytKey = state.settings?.youtubeApiKey || '';
+    if (!ytKey) {
+      setStatus('YouTube API Key を設定してください。');
+      return;
+    }
+    const keywords = await fetchYoutubeTrendingTitles(ytKey, 'JP', 8);
+    if (!keywords.length) {
+      setStatus('YouTubeのトレンド取得に失敗しました。APIキーやネットワークをご確認ください。');
+      return;
+    }
+    const briefText = [
+      '最新のトレンド候補です。伸びそうなテーマを選んで台本を作ってください。',
+      `候補: ${keywords.join(' / ')}`,
+      'この中から最も視聴者が惹かれるテーマを選び、ランキング形式で構成してください。',
+    ].join('\n');
+    aiBriefInput.value = briefText;
+    setStatus('トレンド候補をブリーフ欄に反映しました。');
+  }
 
   function ensureSegmentStyle(segment) {
     if (!segment.style) segment.style = {};
@@ -198,7 +371,7 @@
 
   function ensureBgmConfig() {
     if (!state.script) return null;
-    const defaults = { file: '', volume_db: -10, ducking_db: -16 };
+    const defaults = { file: '', volume_db: -10, ducking_db: 0 };
     if (!state.script.bgm) {
       state.script.bgm = { ...defaults, license: '' };
     } else {
@@ -281,7 +454,7 @@
     const bgm = ensureBgmConfig();
     if (!bgm) return;
     const value = Number(event.target.value);
-    bgm.ducking_db = Number.isNaN(value) ? -16 : value;
+    bgm.ducking_db = Number.isNaN(value) ? 0 : value;
     renderYaml();
   }
 
@@ -485,12 +658,18 @@
     videoGenerateBtn.textContent = '動画生成中...';
     videoLogEl.value = '';
     try {
-      const result = await window.api.generateVideo({ script: state.script });
+      const result = await window.api.generateVideo({
+        script: state.script,
+        clearAudio: clearAudioOnVideo?.checked !== false,
+      });
       state.videoLog = result.stdout || '';
       videoLogEl.value = state.videoLog;
       state.lastVideoPath = result.outputPath;
       if (videoOpenBtn) {
         videoOpenBtn.disabled = !state.lastVideoPath;
+      }
+      if (videoUploadBtn) {
+        videoUploadBtn.disabled = !state.lastVideoPath;
       }
       setStatus('動画生成が完了しました。');
     } catch (err) {
@@ -529,6 +708,8 @@
     renderBgmForm();
     renderVoiceSpeaker();
     renderTimelineSummary();
+    renderSectionPreview();
+    updateVideoButtons();
   }
 
   function enterYamlEditMode() {
@@ -579,6 +760,7 @@
         state.selectedIndex = index;
         renderSectionForm();
         renderSectionList();
+        renderSectionPreview();
       });
       sectionListEl.appendChild(li);
     });
@@ -621,6 +803,7 @@
         renderSectionList();
         renderSummary();
         renderYaml();
+        renderSectionPreview();
       });
       wrapper.appendChild(fieldLabel);
       wrapper.appendChild(textarea);
@@ -639,6 +822,7 @@
       section.bg = e.target.value || null;
       renderYaml();
       renderSummary();
+      renderSectionPreview();
     });
     const clearBtn = document.createElement('button');
     clearBtn.textContent = 'クリア';
@@ -649,6 +833,7 @@
       renderYaml();
       renderSummary();
       renderSectionForm();
+      renderSectionPreview();
     });
     const preview = document.createElement('div');
     preview.style.marginTop = '6px';
@@ -716,6 +901,7 @@
         seg.text = e.target.value;
         renderSectionList();
         renderYaml();
+        renderSectionPreview();
       });
       segWrapper.appendChild(segTextarea);
 
@@ -729,6 +915,7 @@
           (val) => {
             updateSegmentStyleField(seg, 'fontsize', val, (v) => Number(v));
             renderYaml();
+            renderSectionPreview();
           },
           { min: 20, step: 2 }
         )
@@ -741,6 +928,7 @@
           (val) => {
             updateSegmentStyleField(seg, 'fill', val.trim());
             renderYaml();
+            renderSectionPreview();
           },
           { placeholder: '#RRGGBB' }
         )
@@ -753,6 +941,7 @@
           (val) => {
             updateSegmentStrokeField(seg, 'color', val.trim());
             renderYaml();
+            renderSectionPreview();
           },
           { placeholder: '#000000' }
         )
@@ -765,6 +954,7 @@
           (val) => {
             updateSegmentStrokeField(seg, 'width', val, (v) => Number(v));
             renderYaml();
+            renderSectionPreview();
           },
           { min: 0, step: 1 }
         )
@@ -777,6 +967,7 @@
           (val) => {
             updateSegmentPositionField(seg, 'x', val);
             renderYaml();
+            renderSectionPreview();
           },
           { placeholder: 'center / left+80 / 320' }
         )
@@ -789,6 +980,7 @@
           (val) => {
             updateSegmentPositionField(seg, 'y', val);
             renderYaml();
+            renderSectionPreview();
           },
           { placeholder: 'center / top+120 / 400' }
         )
@@ -806,6 +998,7 @@
         section.on_screen_segments.splice(segIndex, 1);
         renderSectionForm();
         renderYaml();
+        renderSectionPreview();
       });
       segActions.appendChild(removeSegBtn);
       segWrapper.appendChild(segActions);
@@ -828,6 +1021,7 @@
       });
       renderSectionForm();
       renderYaml();
+      renderSectionPreview();
     });
     segmentsPanel.appendChild(addSegmentBtn);
     sectionFormEl.appendChild(segmentsPanel);
@@ -985,6 +1179,95 @@
     });
     overlayPanel.appendChild(addOverlayBtn);
     sectionFormEl.appendChild(overlayPanel);
+    renderSectionPreview();
+  }
+
+  function renderSectionPreview() {
+    if (!sectionPreviewEl || !sectionPreviewTextsEl || !sectionPreviewBgEl) return;
+    sectionPreviewTextsEl.innerHTML = '';
+
+    if (!state.script || !state.script.sections.length) {
+      sectionPreviewBgEl.style.backgroundImage = 'linear-gradient(135deg, #1c1c24, #0f0f14)';
+      return;
+    }
+
+    const section = state.script.sections[state.selectedIndex] || state.script.sections[0];
+    const layout = TEXT_LAYOUTS[section.text_layout] || TEXT_LAYOUTS.hero_center;
+    const basePos = layout.base_position || { x: 'center', y: 'center-120' };
+    const rankOffset = layout.rank_offset || { x: 0, y: 0 };
+    const bodyOffset = layout.body_offset || { x: 0, y: 0 };
+    const lineGap = layout.line_gap ?? 24;
+    const align = layout.align || 'center';
+    const rect = sectionPreviewEl.getBoundingClientRect();
+    const scale = rect.width ? rect.width / PREVIEW_BASE_W : 0.5;
+
+    const bgPath = section.bg || state.script.video?.bg || '';
+    if (bgPath) {
+      sectionPreviewBgEl.style.backgroundImage = `url('${previewBackgroundUrl(bgPath)}')`;
+      sectionPreviewBgEl.style.opacity = 0.85;
+    } else {
+      sectionPreviewBgEl.style.backgroundImage = 'linear-gradient(135deg, #1c1c24, #0f0f14)';
+      sectionPreviewBgEl.style.opacity = 1;
+    }
+
+    const baseStyleVal = baseTextStyle();
+    const lines = [];
+
+    if (Array.isArray(section.on_screen_segments) && section.on_screen_segments.length) {
+      section.on_screen_segments.forEach((seg, segIdx) => {
+        const tier = segIdx === 0 ? 'emphasis' : 'body';
+        const merged = applyTierPreviewStyle(mergeSegmentStylePreview(baseStyleVal, seg.style), tier);
+        const offset = segIdx === 0 ? rankOffset : bodyOffset;
+        normalizeLinebreaks(seg.text || '')
+          .split('\n')
+          .filter((l) => l.trim())
+          .forEach((textLine) => {
+            lines.push({ text: textLine, style: merged, offset, tier });
+          });
+      });
+    } else {
+      const merged = applyTierPreviewStyle(baseStyleVal, 'body');
+      normalizeLinebreaks(section.on_screen_text || '')
+        .split('\n')
+        .filter((l) => l.trim())
+        .forEach((textLine, idx) => {
+          const tier = idx === 0 ? 'emphasis' : 'body';
+          const offset = idx === 0 ? rankOffset : bodyOffset;
+          lines.push({ text: textLine, style: applyTierPreviewStyle(merged, tier), offset, tier });
+        });
+    }
+
+    let yCursor = 0;
+    const baseX = resolvePositionValue(basePos.x, 'x');
+    const baseY = resolvePositionValue(basePos.y, 'y');
+
+    lines.forEach((line, idx) => {
+      const fontSize = line.style.fontsize || 64;
+      const textWidth = approximateTextWidth(line.text, fontSize);
+      const offX = Number(line.offset?.x || 0);
+      const offY = Number(line.offset?.y || 0);
+      let xPos = baseX + offX;
+      if (align === 'left') {
+        xPos = 60 + offX;
+      } else if (align === 'right') {
+        xPos = PREVIEW_BASE_W - textWidth - 60 - offX;
+      } else {
+        xPos = baseX + offX - textWidth / 2;
+      }
+      const yPos = baseY + offY + yCursor;
+
+      const el = document.createElement('div');
+      el.className = `section-preview__textline section-preview__textline--${line.tier || 'body'}`;
+      el.textContent = line.text;
+      el.style.left = `${xPos * scale}px`;
+      el.style.top = `${yPos * scale}px`;
+      el.style.fontSize = `${fontSize * scale}px`;
+      el.style.color = line.style.fill || '#FFFFFF';
+      el.style.webkitTextStroke = `${(line.style.strokeWidth || 0) * scale}px ${line.style.strokeColor || '#000000'}`;
+      sectionPreviewTextsEl.appendChild(el);
+
+      yCursor += fontSize + lineGap;
+    });
   }
 
   function renderSummary() {
@@ -1482,6 +1765,11 @@
   if (aiGenerateBtn) {
     aiGenerateBtn.addEventListener('click', handleAIGenerate);
   }
+  if (trendBriefBtn) {
+    trendBriefBtn.addEventListener('click', () => {
+      window.api.openTrendWindow();
+    });
+  }
   if (bgPathInput) {
     bgPathInput.addEventListener('input', handleBackgroundInput);
   }
@@ -1531,6 +1819,63 @@
       setStatus(`話者を id:${val} に変更しました。`);
     });
   }
+  if (window.api?.onTrendSelected) {
+    window.api.onTrendSelected((payload) => {
+      const kws = payload?.keywords || (payload?.keyword ? [payload.keyword] : []);
+      if (!kws.length || !aiBriefInput) return;
+      // テーマをフリーテーマに自動切り替え（存在する場合）
+      if (themeSelect && state.themes?.length) {
+        const free = state.themes.find((t) => t.id === 'freeform_prompt');
+        if (free) {
+          themeSelect.value = free.id;
+          createScriptFromTheme();
+        }
+      }
+      const lines = [
+        `キーワード候補: ${kws.join(' / ')}`,
+        'これらの中で重複・類似をまとめ、最も良い切り口を選んで構成してください。',
+        '形式はランキング/解説/暴露など最適なものをAIが判断してください。',
+        'イントロでフック→本編複数セクション→アウトロ/CTAの流れで。中間セクション数は内容に合わせて決めてください。',
+        '視聴者が惹きつけられる切り口と、信頼性のある根拠を入れてください。',
+      ];
+      aiBriefInput.value = lines.join('\n');
+      setStatus(`トレンド候補をブリーフに反映しました (${kws.length}件)。`);
+    });
+  }
+  function updateVideoButtons() {
+    if (videoUploadBtn) {
+      videoUploadBtn.disabled = !state.lastVideoPath;
+    }
+    if (videoOpenBtn) {
+      videoOpenBtn.disabled = !state.lastVideoPath;
+    }
+  }
+
+  async function handleVideoUpload() {
+    if (!state.lastVideoPath) {
+      setStatus('先に動画を生成してください。');
+      return;
+    }
+    videoUploadBtn.disabled = true;
+    setStatus('YouTubeにアップロード中...');
+    try {
+      const resp = await window.api.uploadVideo({
+        path: state.lastVideoPath,
+        title: state.script?.title || '自動生成動画',
+        description: state.script?.output?.description || '',
+        tags: state.script?.output?.tags || [],
+      });
+      setStatus('YouTubeへのアップロードを開始しました。ターミナル出力を確認してください。');
+      if (resp?.stdout && videoLogEl) {
+        videoLogEl.value = `${resp.stdout}\n${videoLogEl.value || ''}`;
+      }
+    } catch (err) {
+      console.error(err);
+      setStatus(`アップロードに失敗しました: ${err.message || err}`);
+    } finally {
+      videoUploadBtn.disabled = false;
+    }
+  }
   if (timelineRefreshBtn) {
     timelineRefreshBtn.addEventListener('click', handleTimelineRefresh);
   }
@@ -1539,6 +1884,12 @@
   }
   if (videoOpenBtn) {
     videoOpenBtn.addEventListener('click', handleOpenVideo);
+  }
+  if (videoUploadBtn) {
+    videoUploadBtn.addEventListener('click', handleVideoUpload);
+  }
+  if (schedulerBtn) {
+    schedulerBtn.addEventListener('click', () => window.api.openSchedulerWindow());
   }
   if (textFontInput) textFontInput.addEventListener('input', handleTextFontChange);
   if (textFontSizeInput) textFontSizeInput.addEventListener('input', handleFontSizeChange);

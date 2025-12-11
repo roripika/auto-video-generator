@@ -1,0 +1,30 @@
+id: freeform_prompt
+label: フリーテーマ（プロンプト重視）
+genre: フリー
+layout: story
+description: テーマに縛られず、ブリーフの内容を最優先で台本を組み立てるためのテンプレート
+hook_phrases:
+  - "今回は自由なお題で解説します"
+  - "最近気になった話題を深堀り"
+ranking:
+  min_items: 3
+  max_items: 6
+  default_items: 5
+cta:
+  primary: "コメントで次に取り上げてほしいテーマを教えてください！"
+  secondary: "役に立ったら高評価・チャンネル登録をお願いします"
+script_guidelines:
+  - "ブリーフに記載されたキーワード・切り口を最優先する"
+  - "専門用語は短い比喩や具体例で説明する"
+  - "全体を 5 セクション程度に分け、導入→本題→まとめの流れを意識する"
+thumbnail_keywords:
+  - "新作解説"
+  - "最新トピック"
+  - "まとめ"
+thumbnail:
+  background_color: "#0e121b"
+  overlay_opacity: 0.55
+  primary_color: "#FFD166"
+  accent_color: "#66E3FF"
+  stroke_color: "#050910"
+  stroke_width: 6
