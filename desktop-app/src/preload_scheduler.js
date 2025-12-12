@@ -5,17 +5,9 @@ const schedulerBridge = {
   save: (tasks) => ipcRenderer.invoke('scheduler:save', tasks),
   runNow: (taskId) => ipcRenderer.invoke('scheduler:run-now', taskId),
   remove: (taskId) => ipcRenderer.invoke('scheduler:remove', taskId),
+  openLog: (logPath) => ipcRenderer.invoke('scheduler:open-log', logPath),
 };
 
-const safeExpose = (key, value) => {
-  try {
-    contextBridge.exposeInMainWorld(key, value);
-  } catch (err) {
-    console.warn(`[scheduler-preload] expose ${key} failed: ${err.message}`);
-  }
-};
-
-safeExpose('scheduler', schedulerBridge);
-safeExpose('schedulerApi', schedulerBridge);
-safeExpose('schedulerBridge', schedulerBridge);
-safeExpose('api', { scheduler: schedulerBridge });
+contextBridge.exposeInMainWorld('schedulerApi', schedulerBridge);
+contextBridge.exposeInMainWorld('schedulerBridge', schedulerBridge);
+contextBridge.exposeInMainWorld('api', { scheduler: schedulerBridge });

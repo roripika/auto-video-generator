@@ -13,6 +13,8 @@ import time
 from pathlib import Path
 from typing import Iterable, List, Optional
 
+import yaml
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 try:
@@ -74,7 +76,7 @@ def select_hot_keywords_via_llm(keywords: List[str], top_n: int) -> List[str]:
     except ImportError:
         return keywords[:top_n]
 
-    api_key = sys.environ.get("OPENAI_API_KEY") or sys.environ.get("OPENAI_APIKEY")
+    api_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("OPENAI_APIKEY")
     if not api_key:
         return keywords[:top_n]
 
@@ -199,6 +201,42 @@ def clear_audio_cache(work_dir: Path) -> None:
 PRIVACY_CHOICES = {"private", "unlisted", "public"}
 
 
+def extract_upload_metadata(script_path: Path) -> tuple[Optional[str], Optional[str], List[str]]:
+    """Read upload_prep (title/desc/tags) from a generated script, if present."""
+    try:
+        with open(script_path, "r", encoding="utf-8") as fh:
+            data = yaml.safe_load(fh) or {}
+        upload = data.get("upload_prep") or {}
+        title = upload.get("title")
+        desc = upload.get("desc")
+        tags = upload.get("tags")
+        tag_list = [t for t in tags if isinstance(t, str)] if isinstance(tags, list) else []
+        return (
+            title if isinstance(title, str) and title.strip() else None,
+            desc if isinstance(desc, str) and desc.strip() else None,
+            tag_list,
+        )
+    except Exception as err:
+        print(f"[WARN] Failed to parse upload_prep from {script_path}: {err}")
+        return None, None, []
+
+
+def build_brief_from_keywords(keywords: List[str]) -> str:
+    """Mimic the UI brief instructions using all trend keywords."""
+    cleaned = [kw.strip() for kw in keywords if isinstance(kw, str) and kw.strip()]
+    if not cleaned:
+        return ""
+    joined = " / ".join(cleaned[:20])
+    lines = [
+        f"キーワード候補: {joined}",
+        "これらの中で重複・類似をまとめ、最も良い切り口を選んで構成してください。",
+        "形式はランキング/解説/暴露など最適なものをAIが判断してください。",
+        "イントロでフック→本編複数セクション→アウトロ/CTAの流れで。中間セクション数は内容に合わせて決めてください。",
+        "視聴者が惹きつけられる切り口と、信頼性のある根拠を入れてください。",
+    ]
+    return "\n".join(lines)
+
+
 def maybe_upload_to_youtube(
     video_path: Path,
     title: str,
@@ -283,11 +321,22 @@ def run_once(args: argparse.Namespace) -> None:
         if not ideas:
             print("[WARN] LLM からトレンドアイデアが取得できませんでした。")
             return
+        top_idea = None
         for idea in ideas:
             kw = idea.get("keyword") or idea.get("title") or "trend"
-            brief = idea.get("brief") or args.brief_template.format(keyword=kw)
+            # idea から related_keywords があればまとめて brief を再構築
+            related = idea.get("related_keywords")
+            if isinstance(related, list) and related:
+                brief = build_brief_from_keywords([kw, *related])
+            else:
+                brief = idea.get("brief")
+            if not brief:
+                brief = args.brief_template.format(keyword=kw)
             theme_id = idea.get("suggested_theme_id") or args.theme_id
-            tasks.append({"keyword": kw, "brief": brief, "theme_id": theme_id})
+            top_idea = {"keyword": kw, "brief": brief, "theme_id": theme_id}
+            break
+        if top_idea:
+            tasks.append(top_idea)
     else:
         if not args.youtube_api_key:
             print("[WARN] YouTube API key is required for trending fetch. Skipping.")
@@ -297,11 +346,13 @@ def run_once(args: argparse.Namespace) -> None:
             print("[WARN] No trending keywords fetched; skipping this cycle.")
             return
         picked_keywords = select_hot_keywords_via_llm(keywords, top_n=args.max_keywords)
-        for kw in picked_keywords:
+        if picked_keywords:
+            kw = picked_keywords[0]
+            prompt = build_brief_from_keywords(picked_keywords) or args.brief_template.format(keyword=kw)
             tasks.append(
                 {
                     "keyword": kw,
-                    "brief": args.brief_template.format(keyword=kw),
+                    "brief": prompt,
                     "theme_id": args.theme_id,
                 }
             )
@@ -330,9 +381,10 @@ def run_once(args: argparse.Namespace) -> None:
             continue
 
         if args.youtube_client_secrets:
-            title = f"{kw} トレンド解説"
-            desc = f"{kw} に関する自動生成動画です。作成日時: {datetime.datetime.now():%Y-%m-%d %H:%M}"
-            tags = [kw, "トレンド", "自動生成"]
+            meta_title, meta_desc, meta_tags = extract_upload_metadata(script_path)
+            title = meta_title or f"{kw} トレンド解説"
+            desc = meta_desc or f"{kw} に関する自動生成動画です。作成日時: {datetime.datetime.now():%Y-%m-%d %H:%M}"
+            tags = meta_tags or [kw, "トレンド", "自動生成"]
             maybe_upload_to_youtube(
                 video_path=video_path,
                 title=title,

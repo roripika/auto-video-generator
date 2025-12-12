@@ -67,6 +67,7 @@ const YOUTUBE_AUTH_TEST_SCRIPT = path.join(PROJECT_ROOT, 'scripts', 'youtube_aut
 const TRENDS_FETCH_SCRIPT = path.join(PROJECT_ROOT, 'scripts', 'fetch_trend_ideas_llm.py');
 const YOUTUBE_UPLOAD_SCRIPT = path.join(PROJECT_ROOT, 'scripts', 'youtube_upload.py');
 const SCHEDULE_FILE = path.join(SETTINGS_DIR, 'schedule.json');
+const SCHEDULER_LOG_DIR = path.join(PROJECT_ROOT, 'logs', 'scheduler');
 const TMP_DIR = path.join(PROJECT_ROOT, 'tmp');
 const UI_SCRIPT_PATH = path.join(TMP_DIR, 'ui_script.yaml');
 const AUDIO_CACHE_DIR = path.join(PROJECT_ROOT, 'work', 'audio');
@@ -597,26 +598,98 @@ function registerHandlers() {
     await shell.openExternal(url);
     return { ok: true };
   });
+  const clampNumber = (value, min, max, fallback) => {
+    const num = Number(value);
+    if (Number.isFinite(num)) {
+      return Math.min(max, Math.max(min, num));
+    }
+    return fallback;
+  };
+
+  const sanitizeSchedulerTask = (task = {}) => {
+    const id =
+      typeof task.id === 'string' && task.id.trim()
+        ? task.id.trim()
+        : `t-${Math.random().toString(36).slice(2, 8)}`;
+    return {
+      id,
+      name: typeof task.name === 'string' ? task.name : '',
+      source: task.source === 'llm' ? 'llm' : 'youtube',
+      max_keywords: clampNumber(task.max_keywords, 1, 50, 10),
+      interval_minutes: clampNumber(task.interval_minutes, 1, 10080, 1440),
+      start_offset_minutes:
+        task.start_offset_minutes === undefined || task.start_offset_minutes === null
+          ? undefined
+          : Math.max(0, Number(task.start_offset_minutes) || 0),
+      auto_upload: task.auto_upload !== false,
+      clear_cache: task.clear_cache !== false,
+      enabled: task.enabled !== false,
+    };
+  };
+
+  const sanitizeSchedulerTasks = (tasks) =>
+    (Array.isArray(tasks) ? tasks : []).map(sanitizeSchedulerTask);
+
   const getSavedSchedulerTasks = () => {
     try {
       if (fs.existsSync(SCHEDULE_FILE)) {
         const data = JSON.parse(fs.readFileSync(SCHEDULE_FILE, 'utf-8'));
-        return Array.isArray(data) ? data : [];
+        return sanitizeSchedulerTasks(data);
       }
     } catch (err) {
       console.error('Failed to load scheduler file', err);
     }
     return [];
   };
-  ipcMain.handle('scheduler:list', async () => getSavedSchedulerTasks());
+
+  const getLatestLogInfo = (taskId) => {
+    try {
+      if (!taskId || !fs.existsSync(SCHEDULER_LOG_DIR)) return null;
+      const files = fs
+        .readdirSync(SCHEDULER_LOG_DIR)
+        .filter((file) => file.startsWith(`${taskId}-`) && file.endsWith('.log'));
+      if (!files.length) return null;
+      files.sort(
+        (a, b) =>
+          fs.statSync(path.join(SCHEDULER_LOG_DIR, b)).mtimeMs -
+          fs.statSync(path.join(SCHEDULER_LOG_DIR, a)).mtimeMs
+      );
+      const logPath = path.join(SCHEDULER_LOG_DIR, files[0]);
+      return {
+        logPath,
+        runAt: new Date(fs.statSync(logPath).mtimeMs).toISOString(),
+      };
+    } catch (err) {
+      console.error('Failed to inspect scheduler logs', err);
+      return null;
+    }
+  };
+
+  const decorateSchedulerTasks = (tasks) =>
+    (tasks || []).map((task) => {
+      if (!task.id) return task;
+      const meta = getLatestLogInfo(task.id);
+      return {
+        ...task,
+        last_log_path: meta?.logPath || null,
+        last_run_at: meta?.runAt || null,
+      };
+    });
+
+  ipcMain.handle('scheduler:list', async () => decorateSchedulerTasks(getSavedSchedulerTasks()));
 
   const saveSchedulerTasks = (tasks) => {
+    const sanitized = sanitizeSchedulerTasks(tasks);
     fs.mkdirSync(SETTINGS_DIR, { recursive: true });
-    fs.writeFileSync(SCHEDULE_FILE, JSON.stringify(tasks, null, 2), 'utf-8');
+    fs.writeFileSync(SCHEDULE_FILE, JSON.stringify(sanitized, null, 2), 'utf-8');
+    return sanitized;
   };
 
   const clearSchedulerTimers = () => {
-    Object.values(schedulerTimers).forEach((t) => clearInterval(t));
+    Object.values(schedulerTimers).forEach((timer) => {
+      if (timer?.interval) clearInterval(timer.interval);
+      if (timer?.timeout) clearTimeout(timer.timeout);
+    });
     schedulerTimers = {};
   };
 
@@ -643,15 +716,17 @@ function registerHandlers() {
     if (wantUpload && currentSettings.youtubePrivacyStatus) {
       args.push('--youtube-privacy', normalizeYoutubePrivacyStatus(currentSettings.youtubePrivacyStatus));
     }
+    if (task.clear_cache !== false) {
+      args.push('--clear-cache');
+    }
     return args;
   };
 
   const runTaskNow = (task) =>
     new Promise((resolve, reject) => {
-      const logDir = path.join(PROJECT_ROOT, 'logs', 'scheduler');
-      fs.mkdirSync(logDir, { recursive: true });
+      fs.mkdirSync(SCHEDULER_LOG_DIR, { recursive: true });
       const ts = new Date().toISOString().replace(/[:.]/g, '-');
-      const logPath = path.join(logDir, `${task.id || 'task'}-${ts}.log`);
+      const logPath = path.join(SCHEDULER_LOG_DIR, `${task.id || 'task'}-${ts}.log`);
       const args = autoTrendArgs(task);
       const proc = spawn(PYTHON_BIN, args, { cwd: PROJECT_ROOT });
       const logStream = fs.createWriteStream(logPath);
@@ -670,19 +745,37 @@ function registerHandlers() {
 
   const scheduleTasks = (tasks) => {
     clearSchedulerTimers();
-    tasks
+    (tasks || [])
       .filter((t) => t.enabled !== false)
       .forEach((task) => {
         const intervalMin = Math.max(1, Number(task.interval_minutes || 1440));
-        schedulerTimers[task.id] = setInterval(() => {
-          runTaskNow(task).catch((err) => console.error('Scheduled task failed', err));
-        }, intervalMin * 60 * 1000);
+        const intervalMs = intervalMin * 60 * 1000;
+        const startOffsetMin =
+          task.start_offset_minutes !== undefined && task.start_offset_minutes !== null
+            ? Math.max(0, Number(task.start_offset_minutes) || 0)
+            : intervalMin;
+        const firstDelayMs = startOffsetMin * 60 * 1000;
+        const runner = () => runTaskNow(task).catch((err) => console.error('Scheduled task failed', err));
+        const handleIntervalStart = () => {
+          const interval = setInterval(runner, intervalMs);
+          schedulerTimers[task.id] = { ...(schedulerTimers[task.id] || {}), interval };
+        };
+        if (firstDelayMs > 0) {
+          const timeout = setTimeout(() => {
+            runner();
+            handleIntervalStart();
+          }, firstDelayMs);
+          schedulerTimers[task.id] = { timeout };
+        } else {
+          runner();
+          handleIntervalStart();
+        }
       });
   };
 
   ipcMain.handle('scheduler:save', async (_event, tasks) => {
-    saveSchedulerTasks(tasks || []);
-    scheduleTasks(tasks || []);
+    const sanitized = saveSchedulerTasks(tasks || []);
+    scheduleTasks(sanitized);
     return { ok: true };
   });
 
@@ -697,8 +790,20 @@ function registerHandlers() {
   ipcMain.handle('scheduler:remove', async (_event, taskId) => {
     const tasks = getSavedSchedulerTasks();
     const next = (tasks || []).filter((t) => t.id !== taskId);
-    saveSchedulerTasks(next);
-    scheduleTasks(next);
+    const sanitized = saveSchedulerTasks(next);
+    scheduleTasks(sanitized);
+    return { ok: true };
+  });
+
+  ipcMain.handle('scheduler:open-log', async (_event, logPath) => {
+    if (!logPath) throw new Error('logPath is required');
+    if (!fs.existsSync(logPath)) {
+      throw new Error('指定されたログファイルが見つかりません。');
+    }
+    const result = await shell.openPath(logPath);
+    if (result) {
+      throw new Error(result);
+    }
     return { ok: true };
   });
 

@@ -5,11 +5,17 @@
   const taskStatus = document.getElementById('taskStatus');
 
   let tasks = [];
-  const getScheduler = () =>
-    window.scheduler ||
-    window.schedulerApi ||
-    window.schedulerBridge ||
-    (window.api && window.api.scheduler);
+  const getScheduler = () => {
+    const candidate = window.scheduler;
+    if (candidate && typeof candidate.list === 'function') {
+      return candidate;
+    }
+    return (
+      window.schedulerApi ||
+      window.schedulerBridge ||
+      (window.api && window.api.scheduler)
+    );
+  };
 
   function uuid() {
     return 't-' + Math.random().toString(36).slice(2, 8);
@@ -74,11 +80,29 @@
         task.interval_minutes = Number(e.target.value) || 1440;
       });
 
+      const startOffset = document.createElement('input');
+      startOffset.type = 'number';
+      startOffset.min = '0';
+      startOffset.placeholder = '例: 60';
+      startOffset.value =
+        typeof task.start_offset_minutes === 'number' ? String(task.start_offset_minutes) : '';
+      startOffset.addEventListener('input', (e) => {
+        const val = e.target.value;
+        task.start_offset_minutes = val === '' ? undefined : Math.max(0, Number(val) || 0);
+      });
+
       const uploadToggle = document.createElement('input');
       uploadToggle.type = 'checkbox';
       uploadToggle.checked = task.auto_upload !== false;
       uploadToggle.addEventListener('change', (e) => {
         task.auto_upload = e.target.checked;
+      });
+
+      const clearCacheToggle = document.createElement('input');
+      clearCacheToggle.type = 'checkbox';
+      clearCacheToggle.checked = task.clear_cache !== false;
+      clearCacheToggle.addEventListener('change', (e) => {
+        task.clear_cache = e.target.checked;
       });
 
       const enabledToggle = document.createElement('input');
@@ -98,11 +122,27 @@
           if (!client?.runNow) throw new Error('scheduler API not available');
           await client.runNow(task.id);
           taskStatus.textContent = '実行完了（ログは logs/scheduler/ を確認）';
+          await loadTasks();
         } catch (err) {
           console.error(err);
           taskStatus.textContent = `実行失敗: ${err.message || err}`;
         } finally {
           runBtn.disabled = false;
+        }
+      });
+
+      const logBtn = document.createElement('button');
+      logBtn.textContent = 'ログを開く';
+      logBtn.disabled = !task.last_log_path;
+      logBtn.addEventListener('click', async () => {
+        try {
+          const client = getScheduler();
+          if (!client?.openLog) throw new Error('scheduler API not available');
+          if (!task.last_log_path) throw new Error('ログがありません');
+          await client.openLog(task.last_log_path);
+        } catch (err) {
+          console.error(err);
+          taskStatus.textContent = `ログを開けません: ${err.message || err}`;
         }
       });
 
@@ -116,20 +156,30 @@
 
       const meta = document.createElement('div');
       meta.className = 'task-meta';
+      const lastRunText = task.last_run_at ? new Date(task.last_run_at).toLocaleString('ja-JP') : '未実行';
       meta.innerHTML = `
         <div>ソース: ${task.source || 'youtube'}</div>
         <div>max-keywords: ${task.max_keywords || 10}</div>
         <div>間隔(分): ${task.interval_minutes || 1440}</div>
         <div>自動アップロード: ${task.auto_upload !== false ? 'ON' : 'OFF'}</div>
+        <div>キャッシュ消去: ${task.clear_cache !== false ? 'ON' : 'OFF'}</div>
+        <div>開始まで(分): ${
+          typeof task.start_offset_minutes === 'number' ? task.start_offset_minutes : '未指定'
+        }</div>
+        <div>最終実行: ${lastRunText}</div>
       `;
 
       row.appendChild(wrapField('タスク名', nameInput));
       row.appendChild(wrapField('ソース', sourceSelect));
       row.appendChild(wrapField('max-keywords', maxKw));
       row.appendChild(wrapField('間隔(分)', interval));
+      row.appendChild(wrapField('間隔(分)', interval));
+      row.appendChild(wrapField('開始まで(分)', startOffset));
       row.appendChild(wrapField('自動アップロード', uploadToggle));
+      row.appendChild(wrapField('音声キャッシュ消去', clearCacheToggle));
       row.appendChild(wrapField('有効', enabledToggle));
       row.appendChild(runBtn);
+      row.appendChild(logBtn);
       row.appendChild(delBtn);
 
       li.appendChild(title);
@@ -172,7 +222,9 @@
         source: 'youtube',
         max_keywords: 10,
         interval_minutes: 1440,
+        start_offset_minutes: 0,
         auto_upload: true,
+        clear_cache: true,
         enabled: true,
       });
       renderTasks();

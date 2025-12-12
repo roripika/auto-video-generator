@@ -1859,11 +1859,24 @@
     videoUploadBtn.disabled = true;
     setStatus('YouTubeにアップロード中...');
     try {
+      const uploadPrep = state.script?.upload_prep || {};
+      const title =
+        (typeof uploadPrep.title === 'string' && uploadPrep.title.trim()) ||
+        state.script?.title ||
+        '自動生成動画';
+      const desc =
+        (typeof uploadPrep.desc === 'string' && uploadPrep.desc.trim()) ||
+        state.script?.output?.description ||
+        '';
+      const tags =
+        Array.isArray(uploadPrep.tags) && uploadPrep.tags.length
+          ? uploadPrep.tags
+          : state.script?.output?.tags || [];
       const resp = await window.api.uploadVideo({
         path: state.lastVideoPath,
-        title: state.script?.title || '自動生成動画',
-        description: state.script?.output?.description || '',
-        tags: state.script?.output?.tags || [],
+        title,
+        description: desc,
+        tags,
       });
       setStatus('YouTubeへのアップロードを開始しました。ターミナル出力を確認してください。');
       if (resp?.stdout && videoLogEl) {
