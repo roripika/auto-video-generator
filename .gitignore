@@ -31,6 +31,7 @@ desktop-app/*.log
 scripts/*.log
 *.log
 script.yaml
+tests/manual/
 
 # OS artifacts
 .DS_Store

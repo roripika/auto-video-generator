@@ -15,7 +15,14 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import requests
 
-from src.assets import AssetFetcher, AssetKind, DownloadedAsset  # noqa: E402
+from src.assets import (
+    AssetFetcher,
+    AssetKind,
+    DownloadedAsset,
+    PexelsClient,
+    PixabayClient,
+    StableDiffusionClient,
+)  # noqa: E402
 from src.audio.voicevox_client import VoicevoxClient, VoicevoxError  # noqa: E402
 from src.models import BGMAudio  # noqa: E402
 from src.outputs import write_metadata, write_srt  # noqa: E402
@@ -104,7 +111,23 @@ def ensure_background_assets(script) -> DownloadedAsset | None:
                     return value
         return None
 
-    fetcher = AssetFetcher()
+    # Prefer explicit API keys from shared settings, falling back to env vars.
+    pexels_key = SHARED_SETTINGS.get("pexelsApiKey") or os.getenv("PEXELS_API_KEY")
+    pixabay_key = SHARED_SETTINGS.get("pixabayApiKey") or os.getenv("PIXABAY_API_KEY")
+    stability_key = SHARED_SETTINGS.get("stabilityApiKey") or os.getenv("STABILITY_API_KEY")
+
+    ai_gen = None
+    if stability_key:
+        try:
+            ai_gen = StableDiffusionClient(api_key=stability_key)
+        except Exception:
+            ai_gen = None
+
+    fetcher = AssetFetcher(
+        pexels=PexelsClient(api_key=pexels_key),
+        pixabay=PixabayClient(api_key=pixabay_key),
+        ai_generator=ai_gen,
+    )
 
     def fetch_asset(keyword: str | None) -> DownloadedAsset | None:
         if not keyword:

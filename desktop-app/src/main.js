@@ -58,7 +58,9 @@ const DEFAULT_AI_SETTINGS = {
   assetProviderOrder: 'pexels,pixabay',
   assetMaxResults: 5,
 };
-const PYTHON_BIN = process.env.PYTHON_BIN || 'python3';
+const VENV_PY = path.join(PROJECT_ROOT, '.venv', 'bin', 'python3');
+const VENV_BIN_DIR = path.join(PROJECT_ROOT, '.venv', 'bin');
+const PYTHON_BIN = process.env.PYTHON_BIN || (fs.existsSync(VENV_PY) ? VENV_PY : 'python3');
 const FETCH_ASSETS_SCRIPT = path.join(PROJECT_ROOT, 'scripts', 'fetch_assets.py');
 const GENERATE_AUDIO_SCRIPT = path.join(PROJECT_ROOT, 'scripts', 'generate_audio.py');
 const DESCRIBE_TIMELINE_SCRIPT = path.join(PROJECT_ROOT, 'scripts', 'describe_timeline.py');
@@ -430,7 +432,7 @@ function registerHandlers() {
       credPath,
     ];
     return new Promise((resolve, reject) => {
-      const proc = spawn(PYTHON_BIN, args, { cwd: PROJECT_ROOT });
+      const proc = spawn(PYTHON_BIN, args, { cwd: PROJECT_ROOT, env: buildEnv() });
       let stderr = '';
       proc.stderr.on('data', (data) => {
         stderr += data.toString();
@@ -479,7 +481,7 @@ function registerHandlers() {
       '--stdout',
     ];
     return new Promise((resolve, reject) => {
-      const proc = spawn(PYTHON_BIN, args, { cwd: PROJECT_ROOT });
+      const proc = spawn(PYTHON_BIN, args, { cwd: PROJECT_ROOT, env: buildEnv() });
       let stdout = '';
       let stderr = '';
       proc.stdout.on('data', (data) => {
@@ -516,7 +518,8 @@ function registerHandlers() {
     if (payload?.configPath) {
       args.push('--config', payload.configPath);
     }
-    return runPythonText(args, '音声生成に失敗しました。');
+    const result = await runPythonText(args, '音声生成に失敗しました。');
+    return result;
   });
   ipcMain.handle('timeline:describe', async (event, payload) => {
     const script = payload?.script;
@@ -606,7 +609,7 @@ function registerHandlers() {
       args.push('--tags', ...payload.tags);
     }
     return new Promise((resolve, reject) => {
-      const proc = spawn(PYTHON_BIN, args, { cwd: PROJECT_ROOT });
+      const proc = spawn(PYTHON_BIN, args, { cwd: PROJECT_ROOT, env: buildEnv() });
       let stdout = '';
       let stderr = '';
       proc.stdout.on('data', (d) => (stdout += d.toString()));
@@ -758,7 +761,7 @@ function registerHandlers() {
       const ts = new Date().toISOString().replace(/[:.]/g, '-');
       const logPath = path.join(SCHEDULER_LOG_DIR, `${task.id || 'task'}-${ts}.log`);
       const args = autoTrendArgs(task);
-      const proc = spawn(PYTHON_BIN, args, { cwd: PROJECT_ROOT });
+      const proc = spawn(PYTHON_BIN, args, { cwd: PROJECT_ROOT, env: buildEnv() });
       const logStream = fs.createWriteStream(logPath);
       proc.stdout.on('data', (d) => logStream.write(d));
       proc.stderr.on('data', (d) => logStream.write(d));
@@ -1074,7 +1077,7 @@ function generateScriptFromBrief({ brief, themeId, sections }) {
     '--stdout',
   ];
   return new Promise((resolve, reject) => {
-    const proc = spawn(PYTHON_BIN, args, { cwd: PROJECT_ROOT });
+    const proc = spawn(PYTHON_BIN, args, { cwd: PROJECT_ROOT, env: buildEnv() });
     let stdout = '';
     let stderr = '';
     proc.stdout.on('data', (data) => {
@@ -1102,14 +1105,19 @@ function generateScriptFromBrief({ brief, themeId, sections }) {
 }
 
 function buildEnv() {
-  return {
+  const baseEnv = {
     ...process.env,
     PEXELS_API_KEY: currentSettings.pexelsApiKey || process.env.PEXELS_API_KEY,
     PIXABAY_API_KEY: currentSettings.pixabayApiKey || process.env.PIXABAY_API_KEY,
     STABILITY_API_KEY: currentSettings.stabilityApiKey || process.env.STABILITY_API_KEY,
     YOUTUBE_API_KEY: currentSettings.youtubeApiKey || process.env.YOUTUBE_API_KEY,
     BGM_DIRECTORY: currentSettings.bgmDirectory || process.env.BGM_DIRECTORY,
+    PYTHONUNBUFFERED: '1',
   };
+  // Prefer venv's bin in PATH so spawned processes find the same Python/pip
+  const sep = path.delimiter || ':';
+  const venvPath = fs.existsSync(VENV_BIN_DIR) ? `${VENV_BIN_DIR}${sep}${process.env.PATH || ''}` : process.env.PATH;
+  return { ...baseEnv, PATH: venvPath };
 }
 
 function runPythonJson(args, friendlyError) {
