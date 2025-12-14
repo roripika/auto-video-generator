@@ -222,6 +222,7 @@ python scripts/fetch_trend_ideas_llm.py \
 * `--source` オプションを追加し、`"llm"` を選べるようにする。
 
   * 例: `--source google_trends` / `--source llm` など
+  * **補足（2025-12 現在）**: Google Trends 取得は撤廃済みのため、実装では常に LLM トピック生成モードとなり `--source` は廃止されています。以下の仕様説明は当初案の記録です。
 * `--source llm` の場合:
 
   1. `fetch_trend_ideas_llm.py` を内部的に呼び出すか、

@@ -51,18 +51,6 @@
         task.name = e.target.value;
       });
 
-      const sourceSelect = document.createElement('select');
-      ['youtube', 'llm'].forEach((opt) => {
-        const o = document.createElement('option');
-        o.value = opt;
-        o.textContent = opt === 'youtube' ? 'YouTube トレンド' : 'LLM トレンド';
-        sourceSelect.appendChild(o);
-      });
-      sourceSelect.value = task.source || 'youtube';
-      sourceSelect.addEventListener('change', (e) => {
-        task.source = e.target.value;
-      });
-
       const maxKw = document.createElement('input');
       maxKw.type = 'number';
       maxKw.min = '1';
@@ -158,7 +146,6 @@
       meta.className = 'task-meta';
       const lastRunText = task.last_run_at ? new Date(task.last_run_at).toLocaleString('ja-JP') : '未実行';
       meta.innerHTML = `
-        <div>ソース: ${task.source || 'youtube'}</div>
         <div>max-keywords: ${task.max_keywords || 10}</div>
         <div>間隔(分): ${task.interval_minutes || 1440}</div>
         <div>自動アップロード: ${task.auto_upload !== false ? 'ON' : 'OFF'}</div>
@@ -170,7 +157,6 @@
       `;
 
       row.appendChild(wrapField('タスク名', nameInput));
-      row.appendChild(wrapField('ソース', sourceSelect));
       row.appendChild(wrapField('max-keywords', maxKw));
       row.appendChild(wrapField('間隔(分)', interval));
       row.appendChild(wrapField('間隔(分)', interval));
@@ -219,7 +205,6 @@
       tasks.push({
         id: uuid(),
         name: '新しいタスク',
-        source: 'youtube',
         max_keywords: 10,
         interval_minutes: 1440,
         start_offset_minutes: 0,

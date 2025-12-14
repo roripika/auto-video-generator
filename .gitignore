@@ -24,6 +24,7 @@ assets/
 logs/
 outputs/
 tmp/
+/work/
 /*.yaml
 scripts/generated/
 desktop-app/*.log

@@ -16,6 +16,9 @@ from .llm import LLMError, OpenAIChatClient
 from .skeletons import build_script_skeleton
 
 
+BG_KEYWORD_MAX_LEN = 30
+
+
 def _normalize_linebreaks(value: str | None) -> str:
     if not value:
         return ""
@@ -338,6 +341,10 @@ CTA: {cta}
 
         # 導入セクション追加
         intro_text = summary or payload.get("intro") or f"{script.title}を紹介します。"
+        intro_bg_kw = _infer_bg_keyword(
+            {"bg_keyword": payload.get("bg_keyword"), "title": script.title, "narration": intro_text},
+            script.title,
+        )
         new_sections.append(
             Section(
                 id="intro",
@@ -345,7 +352,7 @@ CTA: {cta}
                 narration=intro_text,
                 duration_hint_sec=None,
                 bg=None,
-                bg_keyword=payload.get("bg_keyword"),
+                bg_keyword=intro_bg_kw,
                 hook=None,
                 evidence=None,
                 demo=None,
@@ -371,6 +378,7 @@ CTA: {cta}
             segments_payload = section_payload.get("on_screen_segments") or []
             segments_clean = normalize_segments(segments_payload, on_screen)
 
+            bg_keyword = _infer_bg_keyword(section_payload, script.title)
             new_sections.append(
                 Section(
                     id=section_id,
@@ -379,7 +387,7 @@ CTA: {cta}
                     overlays=section_payload.get("overlays") or [],
                     narration=narration,
                     duration_hint_sec=None,
-                    bg_keyword=section_payload.get("bg_keyword"),
+                    bg_keyword=bg_keyword,
                     hook=section_payload.get("hook"),
                     evidence=section_payload.get("evidence"),
                     demo=section_payload.get("demo"),
@@ -394,6 +402,7 @@ CTA: {cta}
             outro_text = outro_payload.get("on_screen_text") or "まとめ"
             outro_narration = outro_payload.get("narration") or summary or global_cta or "最後にもう一度注目ポイントを振り返りましょう。"
             outro_segments = normalize_segments(outro_payload.get("on_screen_segments") or [], outro_text)
+            outro_bg_kw = _infer_bg_keyword(outro_payload, script.title)
             new_sections.append(
                 Section(
                     id="outro",
@@ -402,7 +411,7 @@ CTA: {cta}
                     overlays=outro_payload.get("overlays") or [],
                     narration=outro_narration,
                     duration_hint_sec=None,
-                    bg_keyword=outro_payload.get("bg_keyword"),
+                    bg_keyword=outro_bg_kw,
                     hook=None,
                     evidence=None,
                     demo=None,
@@ -419,10 +428,47 @@ CTA: {cta}
 
         script.sections = new_sections
         if script.upload_prep:
+            desc_parts = []
             if summary:
-                script.upload_prep.desc = f"{summary}\n\n{script.upload_prep.desc or ''}".strip()
+                desc_parts.append(summary.strip())
+            elif script.sections and script.sections[0].narration:
+                desc_parts.append(script.sections[0].narration.strip())
+            if script.upload_prep.desc:
+                desc_parts.append(script.upload_prep.desc.strip())
             if global_cta:
-                script.upload_prep.desc = f"{script.upload_prep.desc}\n{global_cta}".strip()
-                if script.upload_prep and not script.upload_prep.title:
-                    script.upload_prep.title = script.title
+                desc_parts.append(global_cta.strip())
+            script.upload_prep.desc = "\n\n".join(part for part in desc_parts if part).strip()
+            title_candidate = script.title or (script.sections[0].on_screen_text if script.sections else None)
+            if title_candidate:
+                script.upload_prep.title = title_candidate.strip()
         return script
+def _pick_keyword_candidate(text: str | None) -> Optional[str]:
+    if not text:
+        return None
+    chunks = re.split(r"[、。,/|（）()【】「」『』!！?？…・：:・\\-]+|\n+", text)
+    for chunk in chunks:
+        cleaned = chunk.strip()
+        if not cleaned:
+            continue
+        if re.fullmatch(r"第?\d+位", cleaned):
+            continue
+        return cleaned[:BG_KEYWORD_MAX_LEN]
+    return None
+
+
+def _infer_bg_keyword(source: Dict[str, Any], fallback: Optional[str] = None) -> Optional[str]:
+    explicit = source.get("bg_keyword")
+    if isinstance(explicit, str) and explicit.strip():
+        return explicit.strip()[:BG_KEYWORD_MAX_LEN]
+    text_sources: List[str] = []
+    for key in ("bg", "title", "on_screen_text", "hook", "narration"):
+        value = source.get(key)
+        if isinstance(value, str) and value.strip():
+            text_sources.append(value.strip())
+    if fallback:
+        text_sources.append(fallback)
+    for text in text_sources:
+        candidate = _pick_keyword_candidate(text)
+        if candidate:
+            return candidate
+    return fallback[:BG_KEYWORD_MAX_LEN] if fallback else None

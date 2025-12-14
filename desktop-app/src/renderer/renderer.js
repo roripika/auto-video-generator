@@ -9,7 +9,8 @@
   const aiBriefInput = document.getElementById('aiBriefInput');
   const aiSectionsInput = document.getElementById('aiSectionsInput');
   const aiGenerateBtn = document.getElementById('aiGenerateBtn');
-  const trendBriefBtn = document.getElementById('trendBriefBtn');
+  const trendBriefBtnYoutube = document.getElementById('trendBriefBtnYoutube');
+  const trendBriefBtnLlm = document.getElementById('trendBriefBtnLlm');
   const bgPathInput = document.getElementById('bgPathInput');
   const bgBrowseBtn = document.getElementById('bgBrowseBtn');
   const assetKeywordInput = document.getElementById('assetKeywordInput');
@@ -263,26 +264,39 @@
     }
   };
 
-  async function handleTrendBriefGenerate() {
+  async function handleLlmTrendBriefGenerate() {
     if (!aiBriefInput) return;
-    setStatus('トレンド候補を取得中... (YouTube)');
-    const ytKey = state.settings?.youtubeApiKey || '';
-    if (!ytKey) {
-      setStatus('YouTube API Key を設定してください。');
-      return;
+    setStatus('AIトレンド候補を取得中...');
+    try {
+      const payload = await window.api.fetchLlmTrends({ limit: 12 });
+      const keywords = (payload?.keywords || []).filter((kw) => typeof kw === 'string' && kw.trim());
+      const briefs = Array.isArray(payload?.briefs) ? payload.briefs : [];
+      const firstBrief = briefs.find((item) => item?.brief) || briefs[0] || null;
+      if (!keywords.length && !firstBrief) {
+        setStatus('AIトレンド候補を取得できませんでした。');
+        return;
+      }
+      const lines = [];
+      if (keywords.length) {
+        lines.push(`AI候補: ${keywords.join(' / ')}`);
+      }
+      if (firstBrief?.brief) {
+        lines.push(`推奨ブリーフ: ${firstBrief.brief}`);
+      }
+      const seedPhrases = Array.isArray(firstBrief?.seed_phrases)
+        ? firstBrief.seed_phrases.filter((frag) => typeof frag === 'string' && frag.trim())
+        : [];
+      if (seedPhrases.length) {
+        lines.push('元フレーズ案 (断言調で活用してください):');
+        seedPhrases.slice(0, 8).forEach((frag) => lines.push(`- ${frag}`));
+      }
+      lines.push('この中から最も伸びそうな切り口を選び、ランキング/解説構成で台本を組み立ててください。');
+      aiBriefInput.value = lines.join('\n');
+      setStatus('AIトレンド候補をブリーフ欄に反映しました。');
+    } catch (err) {
+      console.error(err);
+      setStatus(`AIトレンド候補の取得に失敗しました: ${err.message || err}`);
     }
-    const keywords = await fetchYoutubeTrendingTitles(ytKey, 'JP', 8);
-    if (!keywords.length) {
-      setStatus('YouTubeのトレンド取得に失敗しました。APIキーやネットワークをご確認ください。');
-      return;
-    }
-    const briefText = [
-      '最新のトレンド候補です。伸びそうなテーマを選んで台本を作ってください。',
-      `候補: ${keywords.join(' / ')}`,
-      'この中から最も視聴者が惹かれるテーマを選び、ランキング形式で構成してください。',
-    ].join('\n');
-    aiBriefInput.value = briefText;
-    setStatus('トレンド候補をブリーフ欄に反映しました。');
   }
 
   function ensureSegmentStyle(segment) {
@@ -1765,10 +1779,13 @@
   if (aiGenerateBtn) {
     aiGenerateBtn.addEventListener('click', handleAIGenerate);
   }
-  if (trendBriefBtn) {
-    trendBriefBtn.addEventListener('click', () => {
+  if (trendBriefBtnYoutube) {
+    trendBriefBtnYoutube.addEventListener('click', () => {
       window.api.openTrendWindow();
     });
+  }
+  if (trendBriefBtnLlm) {
+    trendBriefBtnLlm.addEventListener('click', handleLlmTrendBriefGenerate);
   }
   if (bgPathInput) {
     bgPathInput.addEventListener('input', handleBackgroundInput);

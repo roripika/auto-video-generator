@@ -5,6 +5,14 @@ import argparse
 import sys
 from pathlib import Path
 
+try:
+    from scripts._importlib_metadata_compat import ensure_importlib_metadata_compat  # type: ignore
+except Exception:  # pragma: no cover
+    ensure_importlib_metadata_compat = None  # type: ignore
+
+if ensure_importlib_metadata_compat:
+    ensure_importlib_metadata_compat()
+
 
 PRIVACY_CHOICES = ('private', 'unlisted', 'public')
 

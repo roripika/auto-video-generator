@@ -4,60 +4,37 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
-import os
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
+import textwrap
 import time
 from pathlib import Path
 from typing import Iterable, List, Optional
 
 import yaml
+try:
+    from PIL import Image, ImageDraw, ImageFont  # type: ignore
+except ImportError:  # pragma: no cover
+    Image = ImageDraw = ImageFont = None
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
+try:
+    from scripts._importlib_metadata_compat import ensure_importlib_metadata_compat  # type: ignore
+except Exception:  # pragma: no cover - fallback if import fails
+    ensure_importlib_metadata_compat = None  # type: ignore
+
+if ensure_importlib_metadata_compat:
+    ensure_importlib_metadata_compat()
 try:
     from scripts.fetch_trend_ideas_llm import fetch_trend_ideas_via_llm  # type: ignore
 except Exception:
     fetch_trend_ideas_via_llm = None
 
-
-def fetch_trending_keywords_youtube(api_key: str, geo: str) -> List[str]:
-    """Fetch trending video titles/tags via YouTube Data API as a fallback."""
-    if not api_key:
-        return []
-    try:
-        import requests
-
-        params = {
-            "part": "snippet",
-            "chart": "mostPopular",
-            "regionCode": geo.upper(),
-            "maxResults": 25,
-            "key": api_key,
-        }
-        resp = requests.get("https://www.googleapis.com/youtube/v3/videos", params=params, timeout=10)
-        resp.raise_for_status()
-        data = resp.json()
-        keywords: List[str] = []
-        seen = set()
-        for item in data.get("items", []):
-            title = (item.get("snippet", {}) or {}).get("title") or ""
-            tags = (item.get("snippet", {}) or {}).get("tags") or []
-            candidates = [title] + list(tags)
-            for cand in candidates:
-                cand = cand.strip()
-                if not cand or cand in seen:
-                    continue
-                seen.add(cand)
-                keywords.append(cand)
-                if len(keywords) >= 100:
-                    return keywords
-        return keywords
-    except Exception as err:
-        print(f"[WARN] Failed to fetch YouTube trending keywords: {err}")
-        return []
+TOPIC_HISTORY_DEFAULT = PROJECT_ROOT / "work" / "topic_history.json"
 
 
 def slugify(text: str) -> str:
@@ -65,66 +42,73 @@ def slugify(text: str) -> str:
     return slug or "keyword"
 
 
-def select_hot_keywords_via_llm(keywords: List[str], top_n: int) -> List[str]:
-    """Ask LLM to pick promising topics from keyword list.
+def normalize_keyword_text(value: str | None) -> str:
+    return (value or "").strip().lower()
 
-    Falls back to the first N keywords on any error.
-    """
-    top_n = max(1, min(top_n, len(keywords)))
+
+def parse_timestamp(value: str | None) -> Optional[datetime.datetime]:
+    if not value or not isinstance(value, str):
+        return None
     try:
-        import requests
-    except ImportError:
-        return keywords[:top_n]
+        if value.endswith("Z"):
+            value = value.replace("Z", "+00:00")
+        return datetime.datetime.fromisoformat(value)
+    except ValueError:
+        return None
 
-    api_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("OPENAI_APIKEY")
-    if not api_key:
-        return keywords[:top_n]
 
-    system_prompt = """
-あなたはコンテンツ企画の編集者です。与えられたトレンドキーワード一覧から、日本語の動画にしたときに伸びそうなものを上位順に厳選してください。返答は JSON 配列で、キーワード文字列のみを含めてください。
-"""
-    user_prompt = "\n".join(f"- {kw}" for kw in keywords[:100])
-    payload = {
-        "model": "gpt-4o-mini",
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"候補から上位 {top_n} 件を返してください:\n{user_prompt}"},
-        ],
-        "max_tokens": 512,
-        "temperature": 0.2,
-        "response_format": {"type": "json_object"},
-    }
-    try:
-        resp = requests.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            json=payload,
-            timeout=15,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        content = data["choices"][0]["message"]["content"]
-        parsed = json.loads(content)
-        if isinstance(parsed, list):
-            picked = [kw for kw in parsed if isinstance(kw, str)]
-        elif isinstance(parsed, dict):
-            # accept {"keywords": [..]}
-            arr = parsed.get("keywords") if isinstance(parsed.get("keywords"), list) else []
-            picked = [kw for kw in arr if isinstance(kw, str)]
-        else:
-            picked = []
-        picked = [kw for kw in picked if kw in keywords]
-        if len(picked) < top_n:
-            # fill from original order
-            for kw in keywords:
-                if kw not in picked:
-                    picked.append(kw)
-                if len(picked) >= top_n:
-                    break
-        return picked[:top_n]
-    except Exception as err:
-        print(f"[WARN] LLM keyword selection failed, falling back to first {top_n}: {err}")
-        return keywords[:top_n]
+def prune_topic_history(entries: List[dict], window_days: int) -> List[dict]:
+    if window_days <= 0:
+        return entries
+    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=window_days)
+    filtered: List[dict] = []
+    for entry in entries:
+        ts = parse_timestamp(entry.get("ts"))
+        if ts and ts.tzinfo is None:
+            ts = ts.replace(tzinfo=datetime.timezone.utc)
+        if ts and ts >= cutoff:
+            filtered.append(entry)
+    return filtered
+
+
+def load_topic_history(path: Path, window_days: int) -> tuple[List[dict], set]:
+    entries: List[dict] = []
+    if path.exists():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(data, list):
+                entries = [entry for entry in data if isinstance(entry, dict)]
+        except json.JSONDecodeError:
+            print(f"[WARN] topic history {path} が壊れているためリセットします。")
+    entries = prune_topic_history(entries, window_days)
+    lookup = {normalize_keyword_text(entry.get("keyword")) for entry in entries if entry.get("keyword")}
+    return entries, lookup
+
+
+def save_topic_history(path: Path, entries: List[dict]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(entries, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def record_topic_history(
+    path: Path,
+    entries: List[dict],
+    lookup: set,
+    keywords: List[str],
+    window_days: int,
+) -> tuple[List[dict], set]:
+    if not keywords:
+        return entries, lookup
+    now_iso = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    for kw in keywords:
+        norm = normalize_keyword_text(kw)
+        if not norm:
+            continue
+        entries.append({"keyword": kw, "ts": now_iso})
+        lookup.add(norm)
+    entries = prune_topic_history(entries, window_days)
+    save_topic_history(path, entries)
+    return entries, lookup
 
 
 def run_script_generation(
@@ -155,9 +139,9 @@ def run_script_generation(
         str(output_path),
     ]
     print(f"[INFO] Generating script for '{keyword}' -> {output_path}")
-    result = subprocess.run(cmd, cwd=PROJECT_ROOT, capture_output=True, text=True)
+    result = subprocess.run(cmd, cwd=PROJECT_ROOT)
     if result.returncode != 0:
-        print(f"[ERROR] Script generation failed for '{keyword}': {result.stderr or result.stdout}")
+        print(f"[ERROR] Script generation failed for '{keyword}'. 詳細は上記ログを確認してください。")
         return None
     return output_path
 
@@ -173,9 +157,9 @@ def run_video_generation(script_path: Path, config_path: Optional[Path]) -> Opti
     if config_path:
         cmd += ["--config", str(config_path)]
     print(f"[INFO] Generating video for {script_path}")
-    result = subprocess.run(cmd, cwd=PROJECT_ROOT, capture_output=True, text=True)
+    result = subprocess.run(cmd, cwd=PROJECT_ROOT)
     if result.returncode != 0:
-        print(f"[ERROR] Video generation failed for {script_path}: {result.stderr or result.stdout}")
+        print(f"[ERROR] Video generation failed for {script_path}. 詳細は上記ログを確認してください。")
         return None
 
     # Best-effort: list newest mp4 under outputs/rendered
@@ -199,6 +183,68 @@ def clear_audio_cache(work_dir: Path) -> None:
 
 
 PRIVACY_CHOICES = {"private", "unlisted", "public"}
+THUMBNAIL_FONT_CANDIDATES = [
+    "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc",
+    "/System/Library/Fonts/ヒラギノ角ゴシック W8.ttc",
+    "/System/Library/Fonts/Helvetica.ttc",
+]
+THUMBNAIL_SIZE = (1280, 720)
+THUMBNAIL_BG = "#0e121b"
+THUMBNAIL_STROKE = "#050910"
+THUMBNAIL_FILL = "#FFD166"
+
+
+def _load_thumbnail_font(size: int):
+    if not ImageFont:
+        return None
+    for candidate in THUMBNAIL_FONT_CANDIDATES:
+        if not candidate:
+            continue
+        try:
+            return ImageFont.truetype(candidate, size)
+        except OSError:
+            continue
+    try:
+        return ImageFont.truetype("ArialUnicode.ttf", size)
+    except OSError:
+        return ImageFont.load_default()
+
+
+def generate_thumbnail_from_title(title: str) -> Optional[Path]:
+    if not Image or not title:
+        return None
+    try:
+        img = Image.new("RGB", THUMBNAIL_SIZE, THUMBNAIL_BG)
+        draw = ImageDraw.Draw(img)
+        font = _load_thumbnail_font(96)
+        if not font:
+            return None
+        lines = textwrap.wrap(title.strip(), width=10) or [title.strip()]
+        bbox = font.getbbox("あ")
+        line_height = (bbox[3] - bbox[1]) + 10
+        total_height = len(lines) * line_height
+        y = max(40, (THUMBNAIL_SIZE[1] - total_height) // 2)
+        for line in lines:
+            if not line:
+                continue
+            text_bbox = draw.textbbox((0, 0), line, font=font, stroke_width=6)
+            line_width = text_bbox[2] - text_bbox[0]
+            x = max(40, (THUMBNAIL_SIZE[0] - line_width) // 2)
+            draw.text(
+                (x, y),
+                line,
+                font=font,
+                fill=THUMBNAIL_FILL,
+                stroke_width=6,
+                stroke_fill=THUMBNAIL_STROKE,
+            )
+            y += line_height
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
+            img.save(tmp.name, format="PNG")
+            return Path(tmp.name)
+    except Exception as err:
+        print(f"[WARN] Failed to generate thumbnail: {err}")
+        return None
 
 
 def extract_upload_metadata(script_path: Path) -> tuple[Optional[str], Optional[str], List[str]]:
@@ -237,6 +283,78 @@ def build_brief_from_keywords(keywords: List[str]) -> str:
     return "\n".join(lines)
 
 
+def normalize_llm_topics(data: dict) -> List[dict]:
+    topics: List[dict] = []
+    seen = set()
+
+    def add_topic(keyword, brief=None, related=None, fragments=None):
+        kw = (keyword or "").strip()
+        if not kw:
+            return
+        norm = normalize_keyword_text(kw)
+        if norm in seen:
+            return
+        seen.add(norm)
+        topic = {
+            "keyword": kw,
+            "brief": (brief or "").strip(),
+            "related_keywords": related if isinstance(related, list) else [],
+        }
+        if fragments and isinstance(fragments, list):
+            seeds = [frag.strip() for frag in fragments if isinstance(frag, str) and frag.strip()]
+            if seeds:
+                topic["seed_fragments"] = seeds
+        topics.append(topic)
+
+    ideas = data.get("ideas") if isinstance(data, dict) else []
+    if isinstance(ideas, list):
+        for item in ideas:
+            if not isinstance(item, dict):
+                continue
+            related = item.get("related_keywords") if isinstance(item.get("related_keywords"), list) else []
+            add_topic(
+                item.get("keyword") or item.get("title"),
+                item.get("brief"),
+                related,
+                item.get("seed_phrases"),
+            )
+
+    briefs = data.get("briefs")
+    if isinstance(briefs, list):
+        for entry in briefs:
+            if not isinstance(entry, dict):
+                continue
+            related = entry.get("keywords") if isinstance(entry.get("keywords"), list) else None
+            add_topic(
+                entry.get("keyword"),
+                entry.get("brief"),
+                related,
+                entry.get("seed_phrases"),
+            )
+
+    keywords = data.get("keywords")
+    if isinstance(keywords, list):
+        for kw in keywords:
+            add_topic(kw)
+
+    return topics
+
+
+def fetch_llm_topics(args) -> List[dict]:
+    if not fetch_trend_ideas_via_llm:
+        print("[ERROR] --source llm は利用できません。scripts/fetch_trend_ideas_llm.py を確認してください。")
+        return []
+    try:
+        data = fetch_trend_ideas_via_llm(max_ideas=args.max_keywords, language=args.language)
+    except Exception as err:
+        print(f"[ERROR] LLMからトピックを取得できませんでした: {err}")
+        return []
+    if not isinstance(data, dict):
+        print("[WARN] LLM結果が不正です。")
+        return []
+    return normalize_llm_topics(data)
+
+
 def maybe_upload_to_youtube(
     video_path: Path,
     title: str,
@@ -245,6 +363,7 @@ def maybe_upload_to_youtube(
     client_secrets: Optional[Path],
     credentials_path: Optional[Path],
     privacy_status: str = "private",
+    thumbnail_text: Optional[str] = None,
 ) -> bool:
     """Upload video to YouTube if dependencies and credentials are present."""
     if not client_secrets:
@@ -291,7 +410,7 @@ def maybe_upload_to_youtube(
             "tags": list(tags),
             "categoryId": "22",  # People & Blogs
         },
-        "status": {"privacyStatus": privacy},
+        "status": {"privacyStatus": privacy, "selfDeclaredMadeForKids": False},
     }
     media = MediaFileUpload(str(video_path), chunksize=-1, resumable=True)
     print(f"[INFO] Uploading {video_path} to YouTube...")
@@ -302,65 +421,73 @@ def maybe_upload_to_youtube(
         if status:
             pct = int(status.progress() * 100)
             print(f"[INFO] Upload progress: {pct}%")
-    print(f"[INFO] Upload completed: https://youtube.com/watch?v={response.get('id')}")
+    video_id = response.get("id")
+    print(f"[INFO] Upload completed: https://youtube.com/watch?v={video_id}")
+    thumb_path = None
+    if thumbnail_text:
+        thumb_path = generate_thumbnail_from_title(thumbnail_text)
+    if thumb_path:
+        try:
+            youtube.thumbnails().set(
+                videoId=video_id,
+                media_body=MediaFileUpload(str(thumb_path)),
+            ).execute()
+            print(f"[INFO] Thumbnail uploaded from {thumb_path}")
+        except Exception as err:
+            print(f"[WARN] Failed to upload thumbnail: {err}")
+        finally:
+            try:
+                thumb_path.unlink()
+            except OSError:
+                pass
     return True
 
 
 def run_once(args: argparse.Namespace) -> None:
     tasks: list[dict] = []
-    if args.source == "llm":
-        if not fetch_trend_ideas_via_llm:
-            print("[ERROR] LLMトレンド取得モジュールが読み込めませんでした。scripts/fetch_trend_ideas_llm.py を確認してください。")
-            return
-        try:
-            data = fetch_trend_ideas_via_llm(max_ideas=args.max_keywords, language=args.language)
-        except Exception as err:
-            print(f"[ERROR] LLMからトレンド取得に失敗しました: {err}")
-            return
-        ideas = data.get("ideas", []) if isinstance(data, dict) else []
-        if not ideas:
-            print("[WARN] LLM からトレンドアイデアが取得できませんでした。")
-            return
-        top_idea = None
-        for idea in ideas:
-            kw = idea.get("keyword") or idea.get("title") or "trend"
-            # idea から related_keywords があればまとめて brief を再構築
-            related = idea.get("related_keywords")
-            if isinstance(related, list) and related:
-                brief = build_brief_from_keywords([kw, *related])
-            else:
-                brief = idea.get("brief")
-            if not brief:
-                brief = args.brief_template.format(keyword=kw)
-            theme_id = idea.get("suggested_theme_id") or args.theme_id
-            top_idea = {"keyword": kw, "brief": brief, "theme_id": theme_id}
-            break
-        if top_idea:
-            tasks.append(top_idea)
-    else:
-        if not args.youtube_api_key:
-            print("[WARN] YouTube API key is required for trending fetch. Skipping.")
-            return
-        keywords = fetch_trending_keywords_youtube(args.youtube_api_key, args.geo)
-        if not keywords:
-            print("[WARN] No trending keywords fetched; skipping this cycle.")
-            return
-        picked_keywords = select_hot_keywords_via_llm(keywords, top_n=args.max_keywords)
-        if picked_keywords:
-            kw = picked_keywords[0]
-            prompt = build_brief_from_keywords(picked_keywords) or args.brief_template.format(keyword=kw)
-            tasks.append(
-                {
-                    "keyword": kw,
-                    "brief": prompt,
-                    "theme_id": args.theme_id,
-                }
-            )
+    history_entries, history_lookup = load_topic_history(args.history_file, args.history_days)
+
+    def is_duplicate(keyword: str) -> bool:
+        return normalize_keyword_text(keyword) in history_lookup
+
+    topics = fetch_llm_topics(args)
+    if not topics:
+        print("[WARN] LLM からトピックが取得できませんでした。")
+        return
+    selected_topic = None
+    for topic in topics:
+        if not topic.get("keyword"):
+            continue
+        if is_duplicate(topic["keyword"]):
+            continue
+        selected_topic = topic
+        break
+    if not selected_topic:
+        selected_topic = topics[0]
+    if selected_topic:
+        kw = selected_topic["keyword"]
+        if selected_topic.get("brief"):
+            brief = selected_topic["brief"]
+        elif selected_topic.get("related_keywords"):
+            brief = build_brief_from_keywords([kw, *selected_topic.get("related_keywords", [])])
+        else:
+            brief = args.brief_template.format(keyword=kw)
+        fragments = selected_topic.get("seed_fragments") or []
+        if fragments:
+            fragment_text = "\n元フレーズ案 (短い断言で記述):\n" + "\n".join(f"- {frag}" for frag in fragments)
+            brief = f"{brief}\n\n{fragment_text}"
+        tasks.append({"keyword": kw, "brief": brief, "theme_id": args.theme_id})
 
     output_script_dir = PROJECT_ROOT / "scripts" / "generated" / "auto_trend"
     # Clear audio/cache before each cycle if requested
     if args.clear_cache:
         clear_audio_cache(PROJECT_ROOT / "work")
+
+    if tasks:
+        keywords_to_record = [task["keyword"] for task in tasks if task.get("keyword")]
+        history_entries, history_lookup = record_topic_history(
+            args.history_file, history_entries, history_lookup, keywords_to_record, args.history_days
+        )
 
     for item in tasks:
         kw = item["keyword"]
@@ -379,6 +506,12 @@ def run_once(args: argparse.Namespace) -> None:
         video_path = run_video_generation(script_path, args.config)
         if not video_path:
             continue
+        try:
+            rendered_script_path = video_path.with_suffix(".yaml")
+            shutil.copy2(script_path, rendered_script_path)
+            print(f"[INFO] Saved script snapshot: {rendered_script_path}")
+        except Exception as err:
+            print(f"[WARN] Failed to archive script next to video: {err}")
 
         if args.youtube_client_secrets:
             meta_title, meta_desc, meta_tags = extract_upload_metadata(script_path)
@@ -393,30 +526,19 @@ def run_once(args: argparse.Namespace) -> None:
                 client_secrets=args.youtube_client_secrets,
                 credentials_path=args.youtube_credentials,
                 privacy_status=args.youtube_privacy,
+                thumbnail_text=title,
             )
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Fetch trending keywords (YouTube mostPopular) -> generate script -> render video -> (optional) upload to YouTube."
-    )
-    parser.add_argument("--geo", default="JP", help="Region code (e.g., JP, US).")
-    parser.add_argument(
-        "--youtube-api-key",
-        default=os.environ.get("YOUTUBE_API_KEY", ""),
-        help="YouTube Data API key (mostPopular fallback when Trends RSS fails).",
+        description="Generate scripts/videos directly from AI-generated monthly topics (optionally upload to YouTube)."
     )
     parser.add_argument(
         "--max-keywords",
         type=int,
         default=10,
-        help="Number of keywords to pass to AI selection (top N picked from fetched 100).",
-    )
-    parser.add_argument(
-        "--source",
-        choices=["youtube", "llm"],
-        default="youtube",
-        help="トレンド取得元を指定（YouTube mostPopular か LLM アイデア生成）。",
+        help="LLM に要求するトピック数。履歴で重複除外した後、1件を採用します。",
     )
     parser.add_argument("--language", default="ja", help="LLMソース時の言語ヒント (default: ja)")
     parser.add_argument(
@@ -454,6 +576,18 @@ def parse_args() -> argparse.Namespace:
         "--clear-cache",
         action="store_true",
         help="Clear work/audio and related caches before each cycle.",
+    )
+    parser.add_argument(
+        "--history-file",
+        type=Path,
+        default=TOPIC_HISTORY_DEFAULT,
+        help="キーワード重複管理の履歴ファイルパス (default: work/topic_history.json)。",
+    )
+    parser.add_argument(
+        "--history-days",
+        type=int,
+        default=30,
+        help="履歴に保持する日数。0 を指定すると重複除外しません。",
     )
     return parser.parse_args()
 

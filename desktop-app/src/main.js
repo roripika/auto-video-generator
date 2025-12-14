@@ -470,6 +470,42 @@ function registerHandlers() {
     });
     return titles;
   });
+  ipcMain.handle('trends:fetch-llm', async (_event, payload) => {
+    const limit = clampNumber(payload?.limit, 1, 20, 8);
+    const args = [
+      path.join(PROJECT_ROOT, 'scripts', 'fetch_trend_ideas_llm.py'),
+      '--max-ideas',
+      String(limit),
+      '--stdout',
+    ];
+    return new Promise((resolve, reject) => {
+      const proc = spawn(PYTHON_BIN, args, { cwd: PROJECT_ROOT });
+      let stdout = '';
+      let stderr = '';
+      proc.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+      proc.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+      proc.on('error', (err) => reject(err));
+      proc.on('close', (code) => {
+        if (code !== 0) {
+          reject(new Error(stderr || `fetch_trend_ideas_llm failed (exit ${code})`));
+          return;
+        }
+        try {
+          const parsed = JSON.parse(stdout || '{}');
+          resolve({
+            keywords: Array.isArray(parsed.keywords) ? parsed.keywords : [],
+            briefs: Array.isArray(parsed.briefs) ? parsed.briefs : [],
+          });
+        } catch (err) {
+          reject(new Error(`LLM JSON parse error: ${err.message || err}`));
+        }
+      });
+    });
+  });
   ipcMain.handle('audio:generate', async (event, payload) => {
     const script = payload?.script;
     if (!script) {
@@ -614,7 +650,6 @@ function registerHandlers() {
     return {
       id,
       name: typeof task.name === 'string' ? task.name : '',
-      source: task.source === 'llm' ? 'llm' : 'youtube',
       max_keywords: clampNumber(task.max_keywords, 1, 50, 10),
       interval_minutes: clampNumber(task.interval_minutes, 1, 10080, 1440),
       start_offset_minutes:
@@ -696,16 +731,11 @@ function registerHandlers() {
   const autoTrendArgs = (task) => {
     const args = [
       path.join(PROJECT_ROOT, 'scripts', 'auto_trend_pipeline.py'),
-      '--source',
-      task.source || 'youtube',
       '--max-keywords',
       String(task.max_keywords || 10),
       '--theme-id',
       'freeform_prompt',
     ];
-    if (currentSettings.youtubeApiKey) {
-      args.push('--youtube-api-key', currentSettings.youtubeApiKey);
-    }
     const wantUpload = task.auto_upload !== false;
     if (wantUpload && currentSettings.youtubeClientSecretsPath) {
       args.push('--youtube-client-secrets', currentSettings.youtubeClientSecretsPath);

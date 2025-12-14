@@ -35,6 +35,7 @@ contextBridge.exposeInMainWorld('api', {
     remove: (taskId) => ipcRenderer.invoke('scheduler:remove', taskId),
     openLog: (logPath) => ipcRenderer.invoke('scheduler:open-log', logPath),
   },
+  fetchLlmTrends: (payload) => ipcRenderer.invoke('trends:fetch-llm', payload),
   openExternalLink: (url) => ipcRenderer.invoke('external:open', url),
 });
 

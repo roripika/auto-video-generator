@@ -4,6 +4,14 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+try:
+    from scripts._importlib_metadata_compat import ensure_importlib_metadata_compat  # type: ignore
+except Exception:  # pragma: no cover
+    ensure_importlib_metadata_compat = None  # type: ignore
+
+if ensure_importlib_metadata_compat:
+    ensure_importlib_metadata_compat()
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Trigger YouTube OAuth flow without uploading.")

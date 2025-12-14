@@ -141,14 +141,26 @@ npm start
 - `docs/script_editor_spec.md`: テーマ／ランキングエディタ UI のコンセプトや AI 連携フロー。
 - `docs/TODO.md`: 実装タスク（AI 台本生成、素材パイプライン、サムネ自動化など）。
 - `configs/themes/`: ランキング向けの企画テンプレート（例: `lifehack_surprise.yaml`）。`src/themes.py` から読み込めます。
-- **自動トレンド動画投稿機能** (`scripts/auto_trend_pipeline.py`): GoogleトレンドのデイリーRSSから話題キーワードを取得し、`generate_script_from_brief.py` と `generate_video.py` を自動で呼び出して動画を生成する追加ユーティリティ。任意で YouTube へのアップロードも試行できます。主なフローとオプション:
-  - フロー: 指定時間ごとに起動 → トレンド上位（例: 100件）取得 → AIが話題になりそうなネタを選びブリーフ生成 → AI台本生成で YAML 作成 → 音声キャッシュ等をクリア → 動画生成 → YouTube API で自動アップロード（任意）
-  - `--geo JP` : トレンド取得対象の地域コード。
-  - 備考: トレンド取得は日本向け RSS (`trends.google.co.jp/...`) を優先利用しています。`google.com` ドメインでは地域やネットワークによって 404 が返る場合があるため、日本以外の環境では取得できないことがあります。
-  - `--source youtube` / `--source llm` : トレンド取得元を選択。`llm` は LLM からトレンドネタをJSONで生成するモード。
+- **自動トレンド動画投稿機能** (`scripts/auto_trend_pipeline.py`): Googleトレンド依存を廃し、LLM が月次の雑学トピックと短い元フレーズを生成してから `generate_script_from_brief.py` / `generate_video.py` を自動で呼び出す追加ユーティリティ。任意で YouTube へのアップロードも試行できます。主なフローとオプション:
+  - フロー: 指定時間ごとに起動 → AI が日本向けに伸びそうなトピックを JSON で生成（重複は履歴で除外） → ブリーフ＋断片を用意 → AI 台本生成で YAML 作成 → 音声キャッシュ等をクリア → 動画生成 → YouTube API で自動アップロード（任意）
   - `--max-keywords N` : 1サイクルで処理するキーワード数。
   - `--brief-template "…{keyword}…"` : キーワードを埋め込むブリーフのテンプレート。
   - `--theme-id lifehack_surprise` : 使用するテーマ ID。
   - `--sections 5` : セクション数。
+  - `--history-file work/topic_history.json` / `--history-days 30` : LLMソースで使用済みのキーワード履歴を保存し、指定日数以内の重複を避けるためのオプション。
   - `--interval-minutes 60` / `--max-runs 5` : 指定すると定期実行でループ。
   - `--youtube-client-secrets client_secrets.json` (任意) : 指定すると YouTube へのアップロードを試行。`google-api-python-client` などの依存が必要。
+
+### バックグラウンドでスケジュールを回す
+
+デスクトップアプリを閉じると UI 内蔵のスケジューラは停止します。アプリを開いていない間も `settings/schedule.json` のタスクを実行したい場合は、仮想環境を有効化した状態で次の CLI を常駐させてください。
+
+```bash
+source .venv/bin/activate
+python scripts/scheduler_daemon.py --poll-seconds 60
+```
+
+- `schedule.json` に `enabled: true` で保存されているタスクだけが対象です。
+- タスクは `logs/scheduler/<task-id>-<timestamp>.log` に出力されます。
+- `--run-once` を付けると「現在実行期限を過ぎているタスク」を一度だけ実行して終了します。
+- launchd や systemd の常駐ジョブにこのコマンドを登録しておけば、アプリを閉じていてもバックグラウンドで動画生成ループを維持できます。

@@ -31,7 +31,10 @@
           セクション数
           <input id="aiSectionsInput" type="number" min="3" max="10" value="5" />
         </label>
-        <button id="trendBriefBtn" class="ghost">トレンドから文言生成</button>
+        <div class="trend-brief-buttons">
+          <button id="trendBriefBtnYoutube" class="ghost">YouTubeランキングから文言生成</button>
+          <button id="trendBriefBtnLlm" class="ghost">AIトレンドから文言生成</button>
+        </div>
         <button id="aiGenerateBtn" class="primary">AI で生成</button>
       </div>
       <p class="ai-hint">テーマは上部セレクトで選択したものが利用されます。</p>

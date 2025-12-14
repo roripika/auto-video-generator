@@ -88,9 +88,9 @@ def build_script_skeleton(theme: Optional[ThemeTemplate], section_count: int) ->
             thumbnail_time_sec=1.0,
         ),
         upload_prep=UploadPrep(
-            title=f"{label}で覚えておきたいベスト{len(sections)}",
+            title="",
             tags=[genre, "ランキング", "ライフハック"],
-            desc=f"{label}テーマの自動生成スクリプト（{now.strftime('%Y-%m-%d')} 作成）",
+            desc="",
         ),
     )
     return script
