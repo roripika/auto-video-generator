@@ -32,6 +32,9 @@ scripts/*.log
 *.log
 script.yaml
 tests/manual/
+docs/stepdocs/screenshots/
+docs/stepdocs/steps.json
+docs/stepdocs/guide.md
 
 # OS artifacts
 .DS_Store

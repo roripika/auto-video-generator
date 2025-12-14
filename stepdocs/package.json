@@ -1,0 +1,11 @@
+{
+  "name": "stepdocs-recorder",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "record": "node record_example.js"
+  },
+  "dependencies": {
+    "playwright": "^1.48.2"
+  }
+}
