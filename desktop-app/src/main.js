@@ -85,6 +85,7 @@ let trendWindow = null;
 let schedulerWindow = null;
 let schedulerTimers = {};
 let schedulerQueue = Promise.resolve();
+let uploadQueue = Promise.resolve();
 
 function suggestScriptFilename(script) {
   const raw =
@@ -609,21 +610,32 @@ function registerHandlers() {
     if (payload?.tags && Array.isArray(payload.tags) && payload.tags.length) {
       args.push('--tags', ...payload.tags);
     }
-    return new Promise((resolve, reject) => {
-      const proc = spawn(PYTHON_BIN, args, { cwd: PROJECT_ROOT, env: buildEnv() });
-      let stdout = '';
-      let stderr = '';
-      proc.stdout.on('data', (d) => (stdout += d.toString()));
-      proc.stderr.on('data', (d) => (stderr += d.toString()));
-      proc.on('error', (err) => reject(err));
-      proc.on('close', (code) => {
-        if (code === 0) {
-          resolve({ ok: true, stdout });
-        } else {
-          reject(new Error(stderr || `YouTube upload failed (exit ${code})`));
-        }
+    // Uploads are serialized to avoid concurrent API errors.
+    uploadQueue = uploadQueue
+      .then(
+        () =>
+          new Promise((resolve, reject) => {
+            const proc = spawn(PYTHON_BIN, args, { cwd: PROJECT_ROOT, env: buildEnv() });
+            let stdout = '';
+            let stderr = '';
+            proc.stdout.on('data', (d) => (stdout += d.toString()));
+            proc.stderr.on('data', (d) => (stderr += d.toString()));
+            proc.on('error', (err) => reject(err));
+            proc.on('close', (code) => {
+              if (code === 0) {
+                resolve({ ok: true, stdout });
+              } else {
+                reject(new Error(stderr || `YouTube upload failed (exit ${code})`));
+              }
+            });
+          })
+      )
+      .catch((err) => {
+        // keep queue alive
+        console.error('upload failed', err);
+        throw err;
       });
-    });
+    return uploadQueue;
   });
   ipcMain.handle('video:open-output', async (event, payload) => {
     const target = payload?.path;
