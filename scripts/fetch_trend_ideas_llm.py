@@ -58,6 +58,20 @@ def build_client(args: argparse.Namespace) -> Any:
 
 
 def build_messages(language: str, max_ideas: int) -> List[Dict[str, str]]:
+    categories = [
+        "ライフハック",
+        "時事ネタ",
+        "統計話題",
+        "科学トリビア",
+        "健康常識（断定NG）",
+        "歴史の豆知識",
+        "宇宙・天文",
+        "心理学・行動科学",
+        "テクノロジー動向",
+        "カルチャー・エンタメ",
+    ]
+    categories_str = " / ".join(categories)
+
     system_prompt = """あなたは YouTube 雑学・解説動画チャンネル向けの企画編集者AIです。
 直近〜今後1ヶ月に日本で伸びそうな雑学/豆知識/ライフハックネタを考え、JSONだけを返してください。
 炎上や誹謗中傷、危険行為、医療断定などセンシティブすぎる話題は避けてください。"""
@@ -80,7 +94,7 @@ def build_messages(language: str, max_ideas: int) -> List[Dict[str, str]]:
     {
       "id": "20251209-001",
       "keyword": "ブラックホールの時間の進み方",
-      "category": "宇宙",
+      "category": "宇宙・天文",
       "region": "JP",
       "title": "ブラックホール付近で時間が遅くなる理由",
       "brief": "重力による時空の歪みを日常例に置き換えて解説する",
@@ -96,6 +110,7 @@ def build_messages(language: str, max_ideas: int) -> List[Dict[str, str]]:
 """
     user_prompt = f"""日本向けショート雑学/解説動画のネタを最大 {max_ideas} 件返してください。
 language="{language}"、region="JP" を前提に、priority_score が高い順になるようにしてください。
+必ず category を次のリストから選択してください: {categories_str}
 各トピックには 12〜18 文字程度の短いタイトル、1〜2文の brief、そして 6〜10 個の短い断言フレーズ (seed_phrases) を含めてください。"""
     return [
         {"role": "system", "content": system_prompt.strip()},
