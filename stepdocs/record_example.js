@@ -56,11 +56,19 @@ async function main() {
     await page.goto('https://example.com');
     await recorder.snap({ action: 'goto', target: 'https://example.com', note: 'Open Example home page' });
 
-    // Step 2: Click the More information link (robust locator with explicit wait)
+    // Step 2: Try to click the More information link; fall back to just capture if not found
     const moreInfo = page.locator('text=More information').first();
-    await moreInfo.waitFor({ state: 'visible', timeout: 15000 });
-    await moreInfo.click({ timeout: 15000 });
-    await recorder.snap({ action: 'click', target: 'text=More information', note: 'Go to IANA page' });
+    try {
+      await moreInfo.waitFor({ state: 'visible', timeout: 15000 });
+      await moreInfo.click({ timeout: 5000 });
+      await recorder.snap({ action: 'click', target: 'text=More information', note: 'Go to IANA page' });
+    } catch (e) {
+      await recorder.snap({
+        action: 'capture',
+        target: 'text=More information',
+        note: 'Link not found or not clickable; captured current page instead',
+      });
+    }
   } finally {
     recorder.save();
     await browser.close();
