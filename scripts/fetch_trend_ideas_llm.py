@@ -57,7 +57,7 @@ def build_client(args: argparse.Namespace) -> Any:
     )
 
 
-def build_messages(language: str, max_ideas: int) -> List[Dict[str, str]]:
+def build_messages(language: str, max_ideas: int, category: str | None = None) -> List[Dict[str, str]]:
     categories = [
         "ライフハック",
         "時事ネタ",
@@ -108,9 +108,10 @@ def build_messages(language: str, max_ideas: int) -> List[Dict[str, str]]:
   ]
 }
 """
+    category_hint = f"カテゴリは「{category}」で固定してください。" if category else f"必ず category を次のリストから選択してください: {categories_str}"
     user_prompt = f"""日本向けショート雑学/解説動画のネタを最大 {max_ideas} 件返してください。
 language="{language}"、region="JP" を前提に、priority_score が高い順になるようにしてください。
-必ず category を次のリストから選択してください: {categories_str}
+{category_hint}
 各トピックには 12〜18 文字程度の短いタイトル、1〜2文の brief、そして 6〜10 個の短い断言フレーズ (seed_phrases) を含めてください。"""
     return [
         {"role": "system", "content": system_prompt.strip()},
@@ -252,6 +253,7 @@ def fetch_trend_ideas_via_llm(
     *,
     max_ideas: int = 50,
     language: str = "ja",
+    category: str | None = None,
     provider: str | None = None,
     api_key: str | None = None,
     model: str | None = None,
@@ -273,7 +275,7 @@ def fetch_trend_ideas_via_llm(
         max_tokens=max_tokens,
     )
     client = build_client(args)
-    messages = build_messages(language, max_ideas)
+    messages = build_messages(language, max_ideas, category)
     attempts = max(1, retries)
     last_err: Exception | None = None
     last_err: Exception | None = None

@@ -93,6 +93,31 @@
         task.clear_cache = e.target.checked;
       });
 
+      const categorySelect = document.createElement('select');
+      const categories = [
+        '未指定',
+        'ライフハック',
+        '時事ネタ',
+        '統計話題',
+        '科学トリビア',
+        '健康常識（断定NG）',
+        '歴史の豆知識',
+        '宇宙・天文',
+        '心理学・行動科学',
+        'テクノロジー動向',
+        'カルチャー・エンタメ',
+      ];
+      categories.forEach((cat) => {
+        const opt = document.createElement('option');
+        opt.value = cat === '未指定' ? '' : cat;
+        opt.textContent = cat;
+        if ((task.category || '') === opt.value) opt.selected = true;
+        categorySelect.appendChild(opt);
+      });
+      categorySelect.addEventListener('change', (e) => {
+        task.category = e.target.value || null;
+      });
+
       const enabledToggle = document.createElement('input');
       enabledToggle.type = 'checkbox';
       enabledToggle.checked = task.enabled !== false;
@@ -161,6 +186,7 @@
       row.appendChild(wrapField('間隔(分)', interval));
       row.appendChild(wrapField('間隔(分)', interval));
       row.appendChild(wrapField('開始まで(分)', startOffset));
+      row.appendChild(wrapField('カテゴリ', categorySelect));
       row.appendChild(wrapField('自動アップロード', uploadToggle));
       row.appendChild(wrapField('音声キャッシュ消去', clearCacheToggle));
       row.appendChild(wrapField('有効', enabledToggle));

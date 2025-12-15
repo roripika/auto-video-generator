@@ -740,6 +740,9 @@ function registerHandlers() {
       '--theme-id',
       'freeform_prompt',
     ];
+    if (task.category) {
+      args.push('--llm-category', task.category);
+    }
     const wantUpload = task.auto_upload !== false;
     if (wantUpload && currentSettings.youtubeClientSecretsPath) {
       args.push('--youtube-client-secrets', currentSettings.youtubeClientSecretsPath);

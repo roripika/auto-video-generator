@@ -345,7 +345,7 @@ def fetch_llm_topics(args) -> List[dict]:
         print("[ERROR] --source llm は利用できません。scripts/fetch_trend_ideas_llm.py を確認してください。")
         return []
     try:
-        data = fetch_trend_ideas_via_llm(max_ideas=args.max_keywords, language=args.language)
+        data = fetch_trend_ideas_via_llm(max_ideas=args.max_keywords, language=args.language, category=args.llm_category)
     except Exception as err:
         print(f"[ERROR] LLMからトピックを取得できませんでした: {err}")
         return []
@@ -541,6 +541,7 @@ def parse_args() -> argparse.Namespace:
         help="LLM に要求するトピック数。履歴で重複除外した後、1件を採用します。",
     )
     parser.add_argument("--language", default="ja", help="LLMソース時の言語ヒント (default: ja)")
+    parser.add_argument("--llm-category", default=None, help="LLMソース時のカテゴリを固定したい場合に指定（任意）")
     parser.add_argument(
         "--brief-template",
         default=(
