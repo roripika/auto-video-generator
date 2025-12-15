@@ -84,6 +84,7 @@ let settingsWindow = null;
 let trendWindow = null;
 let schedulerWindow = null;
 let schedulerTimers = {};
+let schedulerQueue = Promise.resolve();
 
 function suggestScriptFilename(script) {
   const raw =
@@ -776,6 +777,19 @@ function registerHandlers() {
       });
     });
 
+  const enqueueTask = (task, { swallowErrors = true } = {}) => {
+    schedulerQueue = schedulerQueue
+      .then(() => runTaskNow(task))
+      .catch((err) => {
+        if (swallowErrors) {
+          console.error('Scheduled task failed', err);
+          return null;
+        }
+        throw err;
+      });
+    return schedulerQueue;
+  };
+
   const scheduleTasks = (tasks) => {
     clearSchedulerTimers();
     (tasks || [])
@@ -788,7 +802,7 @@ function registerHandlers() {
             ? Math.max(0, Number(task.start_offset_minutes) || 0)
             : intervalMin;
         const firstDelayMs = startOffsetMin * 60 * 1000;
-        const runner = () => runTaskNow(task).catch((err) => console.error('Scheduled task failed', err));
+        const runner = () => enqueueTask(task, { swallowErrors: true });
         const handleIntervalStart = () => {
           const interval = setInterval(runner, intervalMs);
           schedulerTimers[task.id] = { ...(schedulerTimers[task.id] || {}), interval };
@@ -817,7 +831,7 @@ function registerHandlers() {
     const tasks = getSavedSchedulerTasks();
     const task = (tasks || []).find((t) => t.id === taskId);
     if (!task) throw new Error('task not found');
-    return runTaskNow(task);
+    return enqueueTask(task, { swallowErrors: false });
   });
 
   ipcMain.handle('scheduler:remove', async (_event, taskId) => {

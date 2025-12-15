@@ -36,6 +36,12 @@ def parse_args() -> argparse.Namespace:
       default="private",
       help="公開範囲 (default: private)",
     )
+    parser.add_argument(
+        "--shorts-mode",
+        choices=("auto", "force", "off"),
+        default="auto",
+        help="auto: 60秒以下なら#shorts付与、force: 常に付与、off: 何もしない",
+    )
     return parser.parse_args()
 
 
@@ -102,6 +108,20 @@ def upload(video_path: Path, title: str, desc: str, tags, creds, privacy_status:
     return video_id
 
 
+def get_duration_seconds(video_path: Path) -> float | None:
+    """ffprobe で動画長を秒で取得。失敗時は None。"""
+    import subprocess
+
+    try:
+        out = subprocess.check_output(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", str(video_path)],
+            stderr=subprocess.STDOUT,
+        )
+        return float(out.strip())
+    except Exception:
+        return None
+
+
 def main() -> None:
     args = parse_args()
     if not args.video.exists():
@@ -109,7 +129,13 @@ def main() -> None:
     if not args.client_secrets.exists():
         raise SystemExit(f"client_secrets not found: {args.client_secrets}")
     creds = ensure_creds(args.client_secrets, args.credentials)
-    upload(args.video, args.title, args.description, args.tags, creds, args.privacy_status)
+    tags = list(args.tags or [])
+    if args.shorts_mode != "off":
+        dur = get_duration_seconds(args.video)
+        if args.shorts_mode == "force" or (dur is not None and dur <= 60.0):
+            if "#shorts" not in tags:
+                tags.append("#shorts")
+    upload(args.video, args.title, args.description, tags, creds, args.privacy_status)
 
 
 if __name__ == "__main__":
