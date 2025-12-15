@@ -69,6 +69,7 @@ const YOUTUBE_AUTH_TEST_SCRIPT = path.join(PROJECT_ROOT, 'scripts', 'youtube_aut
 const TRENDS_FETCH_SCRIPT = path.join(PROJECT_ROOT, 'scripts', 'fetch_trend_ideas_llm.py');
 const YOUTUBE_UPLOAD_SCRIPT = path.join(PROJECT_ROOT, 'scripts', 'youtube_upload.py');
 const SCHEDULE_FILE = path.join(SETTINGS_DIR, 'schedule.json');
+const DEFAULT_MAX_CONCURRENT = 1;
 const SCHEDULER_LOG_DIR = path.join(PROJECT_ROOT, 'logs', 'scheduler');
 const TMP_DIR = path.join(PROJECT_ROOT, 'tmp');
 const UI_SCRIPT_PATH = path.join(TMP_DIR, 'ui_script.yaml');
@@ -86,6 +87,7 @@ let schedulerWindow = null;
 let schedulerTimers = {};
 let schedulerQueue = Promise.resolve();
 let uploadQueue = Promise.resolve();
+let schedulerMaxConcurrent = DEFAULT_MAX_CONCURRENT;
 
 function suggestScriptFilename(script) {
   const raw =
@@ -678,19 +680,36 @@ function registerHandlers() {
     };
   };
 
-  const sanitizeSchedulerTasks = (tasks) =>
-    (Array.isArray(tasks) ? tasks : []).map(sanitizeSchedulerTask);
+  const sanitizeSchedulerTasks = (tasks) => (Array.isArray(tasks) ? tasks : []).map(sanitizeSchedulerTask);
 
-  const getSavedSchedulerTasks = () => {
+  const loadSchedulerData = () => {
+    let tasks = [];
+    let maxConcurrent = DEFAULT_MAX_CONCURRENT;
     try {
       if (fs.existsSync(SCHEDULE_FILE)) {
         const data = JSON.parse(fs.readFileSync(SCHEDULE_FILE, 'utf-8'));
-        return sanitizeSchedulerTasks(data);
+        if (Array.isArray(data)) {
+          tasks = data;
+        } else if (data && typeof data === 'object') {
+          tasks = data.tasks || [];
+          if (data.max_concurrent !== undefined) {
+            maxConcurrent = clampNumber(data.max_concurrent, 1, 4, DEFAULT_MAX_CONCURRENT);
+          }
+        }
       }
     } catch (err) {
       console.error('Failed to load scheduler file', err);
     }
-    return [];
+    return {
+      tasks: sanitizeSchedulerTasks(tasks),
+      max_concurrent: maxConcurrent,
+    };
+  };
+
+  const getSavedSchedulerTasks = () => {
+    const data = loadSchedulerData();
+    schedulerMaxConcurrent = data.max_concurrent || DEFAULT_MAX_CONCURRENT;
+    return data.tasks || [];
   };
 
   const getLatestLogInfo = (taskId) => {
@@ -727,13 +746,25 @@ function registerHandlers() {
       };
     });
 
-  ipcMain.handle('scheduler:list', async () => decorateSchedulerTasks(getSavedSchedulerTasks()));
+  ipcMain.handle('scheduler:list', async () => {
+    const data = loadSchedulerData();
+    schedulerMaxConcurrent = data.max_concurrent || DEFAULT_MAX_CONCURRENT;
+    return {
+      tasks: decorateSchedulerTasks(data.tasks || []),
+      max_concurrent: schedulerMaxConcurrent,
+    };
+  });
 
-  const saveSchedulerTasks = (tasks) => {
+  const saveSchedulerData = (tasks, maxConcurrent) => {
     const sanitized = sanitizeSchedulerTasks(tasks);
+    schedulerMaxConcurrent = clampNumber(maxConcurrent, 1, 4, DEFAULT_MAX_CONCURRENT);
     fs.mkdirSync(SETTINGS_DIR, { recursive: true });
-    fs.writeFileSync(SCHEDULE_FILE, JSON.stringify(sanitized, null, 2), 'utf-8');
-    return sanitized;
+    fs.writeFileSync(
+      SCHEDULE_FILE,
+      JSON.stringify({ tasks: sanitized, max_concurrent: schedulerMaxConcurrent }, null, 2),
+      'utf-8'
+    );
+    return { tasks: sanitized, max_concurrent: schedulerMaxConcurrent };
   };
 
   const clearSchedulerTimers = () => {
@@ -835,9 +866,12 @@ function registerHandlers() {
       });
   };
 
-  ipcMain.handle('scheduler:save', async (_event, tasks) => {
-    const sanitized = saveSchedulerTasks(tasks || []);
-    scheduleTasks(sanitized);
+  ipcMain.handle('scheduler:save', async (_event, payload) => {
+    const incomingTasks = (payload && payload.tasks) || payload || [];
+    const maxConcurrent =
+      (payload && payload.max_concurrent !== undefined) ? payload.max_concurrent : schedulerMaxConcurrent;
+    const saved = saveSchedulerData(incomingTasks || [], maxConcurrent);
+    scheduleTasks(saved.tasks);
     return { ok: true };
   });
 

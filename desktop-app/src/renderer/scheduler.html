@@ -9,6 +9,12 @@
     <section class="settings-panel">
       <h1>定期実行タスク</h1>
       <p class="field-hint">トレンド→台本生成→動画生成→（任意で）YouTubeアップロードまでを自動実行します。</p>
+      <div class="task-row">
+        <label class="task-field">
+          <span class="task-label">最大同時実行数</span>
+          <input id="maxConcurrentInput" type="number" min="1" max="4" value="1" />
+        </label>
+      </div>
       <div class="asset-actions" style="justify-content: space-between; align-items: center;">
         <button id="taskAddBtn" class="primary">タスクを追加</button>
         <button id="taskSaveBtn">保存</button>

@@ -3,8 +3,10 @@
   const taskAddBtn = document.getElementById('taskAddBtn');
   const taskSaveBtn = document.getElementById('taskSaveBtn');
   const taskStatus = document.getElementById('taskStatus');
+  const maxConcurrentInput = document.getElementById('maxConcurrentInput');
 
   let tasks = [];
+  let maxConcurrent = 1;
   const getScheduler = () => {
     const candidate = window.scheduler;
     if (candidate && typeof candidate.list === 'function') {
@@ -205,8 +207,17 @@
     try {
       const client = getScheduler();
       if (!client?.list) throw new Error('scheduler API not available');
-      tasks = await client.list();
-      if (!Array.isArray(tasks)) tasks = [];
+      const data = await client.list();
+      if (Array.isArray(data)) {
+        tasks = data;
+        maxConcurrent = 1;
+      } else {
+        tasks = Array.isArray(data?.tasks) ? data.tasks : [];
+        maxConcurrent = Number(data?.max_concurrent || 1);
+      }
+      if (maxConcurrentInput) {
+        maxConcurrentInput.value = maxConcurrent;
+      }
       renderTasks();
     } catch (err) {
       console.error(err);
@@ -218,7 +229,7 @@
     try {
       const client = getScheduler();
       if (!client?.save) throw new Error('scheduler API not available');
-      await client.save(tasks);
+      await client.save({ tasks, max_concurrent: maxConcurrent });
       taskStatus.textContent = 'タスクを保存しました。';
     } catch (err) {
       console.error(err);
@@ -243,6 +254,12 @@
   }
   if (taskSaveBtn) {
     taskSaveBtn.addEventListener('click', saveTasks);
+  }
+  if (maxConcurrentInput) {
+    maxConcurrentInput.addEventListener('input', (e) => {
+      const val = Number(e.target.value) || 1;
+      maxConcurrent = Math.max(1, Math.min(4, val));
+    });
   }
 
   loadTasks();
