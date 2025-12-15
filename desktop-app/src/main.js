@@ -739,10 +739,28 @@ function registerHandlers() {
     (tasks || []).map((task) => {
       if (!task.id) return task;
       const meta = getLatestLogInfo(task.id);
+      const intervalMin = clampNumber(task.interval_minutes, 1, 10080, 1440);
+      let nextRun = null;
+      if (task.enabled !== false) {
+        if (meta?.runAt) {
+          const lastMs = Date.parse(meta.runAt);
+          if (!Number.isNaN(lastMs)) {
+            nextRun = new Date(lastMs + intervalMin * 60 * 1000).toISOString();
+          }
+        }
+        if (!nextRun) {
+          const startOffsetMin =
+            task.start_offset_minutes !== undefined && task.start_offset_minutes !== null
+              ? Math.max(0, Number(task.start_offset_minutes) || 0)
+              : intervalMin;
+          nextRun = new Date(Date.now() + startOffsetMin * 60 * 1000).toISOString();
+        }
+      }
       return {
         ...task,
         last_log_path: meta?.logPath || null,
         last_run_at: meta?.runAt || null,
+        next_run_at: nextRun,
       };
     });
 

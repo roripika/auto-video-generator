@@ -172,6 +172,10 @@
       const meta = document.createElement('div');
       meta.className = 'task-meta';
       const lastRunText = task.last_run_at ? new Date(task.last_run_at).toLocaleString('ja-JP') : '未実行';
+      const nextRunText =
+        task.next_run_at && task.enabled !== false
+          ? new Date(task.next_run_at).toLocaleString('ja-JP')
+          : '未スケジュール';
       meta.innerHTML = `
         <div>max-keywords: ${task.max_keywords || 10}</div>
         <div>間隔(分): ${task.interval_minutes || 1440}</div>
@@ -181,6 +185,7 @@
           typeof task.start_offset_minutes === 'number' ? task.start_offset_minutes : '未指定'
         }</div>
         <div>最終実行: ${lastRunText}</div>
+        <div>次回予定: ${nextRunText}</div>
       `;
 
       row.appendChild(wrapField('タスク名', nameInput));
