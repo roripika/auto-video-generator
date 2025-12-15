@@ -12,6 +12,7 @@ class VideoConfig(BaseModel):
     fps: int = 30
     bg: str
     bg_fit: Literal["cover", "contain", "stretch"] = "cover"
+    short_mode: Literal["off", "auto", "short"] = "off"  # auto: 60秒以下なら縦長化、short: 強制縦長
 
 
 class VoiceSettings(BaseModel):

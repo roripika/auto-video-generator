@@ -59,6 +59,7 @@ def build_script_skeleton(theme: Optional[ThemeTemplate], section_count: int) ->
             fps=30,
             bg="assets/cache/default.mp4",
             bg_fit="cover",
+            short_mode="off",
         ),
         voice=VoiceSettings(
             engine="voicevox",

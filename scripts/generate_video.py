@@ -441,6 +441,20 @@ def main() -> None:
     timeline = build_timeline(script, audio_dir)
     print(f"[INFO] Total duration: {timeline.total_duration:.2f}s across {len(timeline.sections)} sections.")
 
+    def apply_short_mode_if_needed():
+        mode = getattr(script.video, "short_mode", "off")
+        if mode not in ("auto", "short"):
+            return
+        dur = getattr(timeline, "total_duration", None)
+        should_short = mode == "short" or (dur is not None and dur <= 60.0)
+        if should_short:
+            # 縦長ショート向けに解像度を 1080x1920 に変更
+            script.video.width = 1080
+            script.video.height = 1920
+            print("[INFO] Short mode enabled -> resolution set to 1080x1920")
+
+    apply_short_mode_if_needed()
+
     config.outputs_dir.mkdir(parents=True, exist_ok=True)
     output_path = config.outputs_dir / script.output.filename
 
