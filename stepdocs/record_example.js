@@ -1,8 +1,7 @@
-// A minimal Playwright recorder that captures screenshots and step metadata.
+// Playwright step recorder.
 // Usage:
-//   cd stepdocs
-//   npm install
-//   npm run record
+//   cd stepdocs && npm install
+//   npm run record -- --scenario=stepdocs/scenarios/sample.json
 
 const fs = require('fs');
 const path = require('path');
@@ -11,9 +10,28 @@ const { chromium } = require('playwright');
 const OUT_DIR = path.resolve(__dirname, '../docs/stepdocs');
 const SHOT_DIR = path.join(OUT_DIR, 'screenshots');
 const STEPS_JSON = path.join(OUT_DIR, 'steps.json');
+const DEFAULT_SCENARIO = path.resolve(__dirname, 'scenarios/sample.json');
 
 function ensureDir(p) {
   fs.mkdirSync(p, { recursive: true });
+}
+
+function loadScenarioFromArgv() {
+  const arg = process.argv.find((a) => a.startsWith('--scenario='));
+  const scenarioPath = arg ? aAfter(arg, '--scenario=') : DEFAULT_SCENARIO;
+  const resolved = path.resolve(process.cwd(), scenarioPath);
+  if (!fs.existsSync(resolved)) {
+    throw new Error(`Scenario file not found: ${resolved}`);
+  }
+  const json = JSON.parse(fs.readFileSync(resolved, 'utf-8'));
+  if (!Array.isArray(json)) {
+    throw new Error('Scenario JSON must be an array of steps');
+  }
+  return { steps: json, scenarioPath: resolved };
+}
+
+function aAfter(str, prefix) {
+  return str.slice(prefix.length);
 }
 
 class StepRecorder {
@@ -47,28 +65,48 @@ class StepRecorder {
   }
 }
 
+async function runAction(page, step) {
+  const { action, target, value, note } = step;
+  switch (action) {
+    case 'goto':
+      await page.goto(target, { waitUntil: 'load' });
+      break;
+    case 'click':
+      await page.locator(target).first().click({ timeout: step.timeout || 15000 });
+      break;
+    case 'fill':
+      await page.locator(target).first().fill(value ?? '', { timeout: step.timeout || 15000 });
+      break;
+    case 'waitForSelector':
+      await page.locator(target).first().waitFor({ state: step.state || 'visible', timeout: step.timeout || 15000 });
+      break;
+    default:
+      throw new Error(`Unsupported action: ${action}`);
+  }
+  return note || '';
+}
+
 async function main() {
+  const { steps, scenarioPath } = loadScenarioFromArgv();
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
   const recorder = new StepRecorder(page);
   try {
-    // Step 1: Open example.com
-    await page.goto('https://example.com');
-    await recorder.snap({ action: 'goto', target: 'https://example.com', note: 'Open Example home page' });
-
-    // Step 2: Try to click the More information link; fall back to just capture if not found
-    const moreInfo = page.locator('text=More information').first();
-    try {
-      await moreInfo.waitFor({ state: 'visible', timeout: 15000 });
-      await moreInfo.click({ timeout: 5000 });
-      await recorder.snap({ action: 'click', target: 'text=More information', note: 'Go to IANA page' });
-    } catch (e) {
-      await recorder.snap({
-        action: 'capture',
-        target: 'text=More information',
-        note: 'Link not found or not clickable; captured current page instead',
-      });
+    for (const step of steps) {
+      let note = '';
+      try {
+        note = await runAction(page, step);
+      } catch (err) {
+        await recorder.snap({
+          action: step.action || 'unknown',
+          target: step.target,
+          note: `Action failed: ${err.message || err}`,
+        });
+        throw err;
+      }
+      await recorder.snap({ action: step.action || 'unknown', target: step.target, note });
     }
+    console.log(`[stepdocs] Finished scenario: ${scenarioPath}`);
   } finally {
     recorder.save();
     await browser.close();
@@ -78,7 +116,7 @@ async function main() {
 if (require.main === module) {
   main().catch((err) => {
     console.error(
-      '[stepdocs] Demo scriptです。実際のアプリ操作手順に書き換えてください。エラー:',
+      '[stepdocs] シナリオを実行中にエラーが発生しました。scenarios/*.json をアプリ操作用に編集してください。エラー:',
       err && err.message ? err.message : err
     );
     process.exit(1);

@@ -1,0 +1,4 @@
+[
+  { "action": "goto", "target": "https://example.com", "note": "Open Example home page" },
+  { "action": "click", "target": "text=More information", "note": "Click More information link" }
+]
