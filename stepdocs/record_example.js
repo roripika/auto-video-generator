@@ -77,7 +77,10 @@ async function main() {
 
 if (require.main === module) {
   main().catch((err) => {
-    console.error('Recorder failed:', err);
+    console.error(
+      '[stepdocs] Demo scriptです。実際のアプリ操作手順に書き換えてください。エラー:',
+      err && err.message ? err.message : err
+    );
     process.exit(1);
   });
 }
