@@ -4,6 +4,7 @@
   const taskSaveBtn = document.getElementById('taskSaveBtn');
   const taskStatus = document.getElementById('taskStatus');
   const maxConcurrentInput = document.getElementById('maxConcurrentInput');
+  const statusWindowBtn = document.getElementById('statusWindowBtn');
 
   let tasks = [];
   let maxConcurrent = 1;
@@ -264,6 +265,18 @@
     maxConcurrentInput.addEventListener('input', (e) => {
       const val = Number(e.target.value) || 1;
       maxConcurrent = Math.max(1, Math.min(4, val));
+    });
+  }
+  if (statusWindowBtn) {
+    statusWindowBtn.addEventListener('click', async () => {
+      try {
+        const client = getScheduler();
+        if (!client?.openStatus) throw new Error('scheduler API not available');
+        await client.openStatus();
+      } catch (err) {
+        console.error(err);
+        taskStatus.textContent = `ステータス表示に失敗しました: ${err.message || err}`;
+      }
     });
   }
 

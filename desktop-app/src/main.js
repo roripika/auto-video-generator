@@ -84,10 +84,13 @@ let bgmWindow = null;
 let settingsWindow = null;
 let trendWindow = null;
 let schedulerWindow = null;
+let schedulerStatusWindow = null;
 let schedulerTimers = {};
 let schedulerQueue = Promise.resolve();
 let uploadQueue = Promise.resolve();
 let schedulerMaxConcurrent = DEFAULT_MAX_CONCURRENT;
+let schedulerRunningCount = 0;
+let uploadRunning = false;
 
 function suggestScriptFilename(script) {
   const raw =
@@ -617,6 +620,7 @@ function registerHandlers() {
       .then(
         () =>
           new Promise((resolve, reject) => {
+            uploadRunning = true;
             const proc = spawn(PYTHON_BIN, args, { cwd: PROJECT_ROOT, env: buildEnv() });
             let stdout = '';
             let stderr = '';
@@ -624,6 +628,7 @@ function registerHandlers() {
             proc.stderr.on('data', (d) => (stderr += d.toString()));
             proc.on('error', (err) => reject(err));
             proc.on('close', (code) => {
+              uploadRunning = false;
               if (code === 0) {
                 resolve({ ok: true, stdout });
               } else {
@@ -635,6 +640,7 @@ function registerHandlers() {
       .catch((err) => {
         // keep queue alive
         console.error('upload failed', err);
+        uploadRunning = false;
         throw err;
       });
     return uploadQueue;
@@ -826,16 +832,19 @@ function registerHandlers() {
       const ts = new Date().toISOString().replace(/[:.]/g, '-');
       const logPath = path.join(SCHEDULER_LOG_DIR, `${task.id || 'task'}-${ts}.log`);
       const args = autoTrendArgs(task);
+      schedulerRunningCount += 1;
       const proc = spawn(PYTHON_BIN, args, { cwd: PROJECT_ROOT, env: buildEnv() });
       const logStream = fs.createWriteStream(logPath);
       proc.stdout.on('data', (d) => logStream.write(d));
       proc.stderr.on('data', (d) => logStream.write(d));
       proc.on('error', (err) => {
         logStream.end();
+        schedulerRunningCount = Math.max(0, schedulerRunningCount - 1);
         reject(err);
       });
       proc.on('close', (code) => {
         logStream.end();
+        schedulerRunningCount = Math.max(0, schedulerRunningCount - 1);
         if (code === 0) resolve({ ok: true, logPath });
         else reject(new Error(`exit ${code}, log: ${logPath}`));
       });
@@ -923,6 +932,66 @@ function registerHandlers() {
 
   // 初期ロード時にスケジュールをセット
   scheduleTasks(getSavedSchedulerTasks());
+
+  const getRecentSchedulerLogs = (limit = 10, tailLines = 2000) => {
+    const items = [];
+    try {
+      if (!fs.existsSync(SCHEDULER_LOG_DIR)) return items;
+      const files = fs
+        .readdirSync(SCHEDULER_LOG_DIR)
+        .filter((f) => f.endsWith('.log'))
+        .map((f) => {
+          const p = path.join(SCHEDULER_LOG_DIR, f);
+          return { file: f, path: p, mtimeMs: fs.statSync(p).mtimeMs };
+        });
+      files.sort((a, b) => b.mtimeMs - a.mtimeMs);
+      files.slice(0, limit).forEach((f) => {
+        let tail = '';
+        try {
+          const content = fs.readFileSync(f.path, 'utf-8');
+          const lines = content.split(/\\r?\\n/);
+          const start = Math.max(0, lines.length - tailLines);
+          tail = lines.slice(start).join('\\n');
+        } catch (err) {
+          tail = '';
+        }
+        items.push({ file: f.file, path: f.path, mtime: new Date(f.mtimeMs).toISOString(), tail });
+      });
+    } catch (err) {
+      console.error('Failed to list scheduler logs', err);
+    }
+    return items;
+  };
+
+  ipcMain.handle('scheduler:status-data', async () => {
+    const data = loadSchedulerData();
+    schedulerMaxConcurrent = data.max_concurrent || DEFAULT_MAX_CONCURRENT;
+    return {
+      running_tasks: schedulerRunningCount,
+      upload_running: uploadRunning,
+      max_concurrent: schedulerMaxConcurrent,
+      recent_logs: getRecentSchedulerLogs(),
+      tasks: decorateSchedulerTasks(data.tasks || []),
+    };
+  });
+
+  ipcMain.handle('scheduler:status-open', () => {
+    if (schedulerStatusWindow && !schedulerStatusWindow.isDestroyed()) {
+      schedulerStatusWindow.focus();
+      return;
+    }
+    schedulerStatusWindow = new BrowserWindow({
+      width: 900,
+      height: 700,
+      webPreferences: {
+        preload: path.join(__dirname, 'preload_scheduler.js'),
+      },
+    });
+    schedulerStatusWindow.on('closed', () => {
+      schedulerStatusWindow = null;
+    });
+    schedulerStatusWindow.loadFile(path.join(__dirname, 'renderer', 'scheduler_status.html'));
+  });
 
   ipcMain.on('yaml:stringify', (event, payload) => {
     try {
