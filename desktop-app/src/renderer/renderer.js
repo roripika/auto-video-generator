@@ -9,6 +9,7 @@
   const aiBriefInput = document.getElementById('aiBriefInput');
   const aiSectionsInput = document.getElementById('aiSectionsInput');
   const aiGenerateBtn = document.getElementById('aiGenerateBtn');
+  const aiShortAdjust = document.getElementById('aiShortAdjust');
   const trendBriefBtnYoutube = document.getElementById('trendBriefBtnYoutube');
   const trendBriefBtnLlm = document.getElementById('trendBriefBtnLlm');
   const bgPathInput = document.getElementById('bgPathInput');
@@ -43,10 +44,16 @@
   const videoOpenBtn = document.getElementById('videoOpenBtn');
   const videoUploadBtn = document.getElementById('videoUploadBtn');
   const videoLogEl = document.getElementById('videoLog');
+  const historyListEl = document.getElementById('historyList');
+  const historyRefreshBtn = document.getElementById('historyRefreshBtn');
   const schedulerBtn = document.getElementById('schedulerBtn');
   const clearAudioOnVideo = document.getElementById('clearAudioOnVideo');
+  const shortModeCheck = document.getElementById('shortModeCheck');
+  const tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
+  const tabContents = Array.from(document.querySelectorAll('.tab-content'));
   const voiceSpeakerSelect = document.getElementById('voiceSpeakerSelect');
   const voiceSpeakerLabel = document.getElementById('voiceSpeakerLabel');
+  const appTitleEl = document.querySelector('.app-title');
   const infoButtons = document.querySelectorAll('.info-btn');
   const statusBadge = document.createElement('span');
   statusBadge.className = 'status';
@@ -583,13 +590,23 @@
     aiGenerateBtn.textContent = '生成中...';
     const sections = Number(aiSectionsInput.value) || 5;
     const themeId = themeSelect.value || state.themes[0].id;
+    const preferShort = !!(aiShortAdjust && aiShortAdjust.checked);
+
+    let briefForGen = brief;
+    if (preferShort) {
+      briefForGen += '\n\n制約: 60秒以内のショート動画向けに、セクションを絞り、1分未満の尺になるよう文字数を調整してください。';
+    } else {
+      briefForGen += '\n\n制約: 通常動画として2分以上になるよう、各セクションを厚めにし、情報量を増やしてください。';
+    }
 
     try {
       const script = await window.api.generateScriptFromBrief({
-        brief,
+        brief: briefForGen,
         sections,
         themeId,
       });
+      if (!script.video) script.video = {};
+      script.video.short_mode = preferShort ? 'short' : 'off';
       state.script = script;
       state.filePath = null;
       state.selectedIndex = 0;
@@ -716,6 +733,14 @@
     renderSectionForm();
     renderSummary();
     renderYaml();
+    if (aiShortAdjust) {
+      const mode = state.script?.video?.short_mode || 'off';
+      aiShortAdjust.checked = mode === 'short';
+    }
+    if (shortModeCheck) {
+      const mode = state.script?.video?.short_mode || 'off';
+      shortModeCheck.checked = mode !== 'off';
+    }
     updateBackgroundField();
     renderAssetResults();
     syncTextStyleForm();
@@ -1291,11 +1316,13 @@
     }
     const sectionCount = state.script.sections.length;
     const estimatedDuration = estimateDurationFromText(state.script);
+    const shortMode = state.script.video?.short_mode || 'off';
     summaryPanelEl.innerHTML = `
       <div><strong>タイトル:</strong> ${state.script.title}</div>
       <div><strong>ファイル:</strong> ${state.filePath || '未保存'}</div>
       <div><strong>セクション数:</strong> ${sectionCount}</div>
       <div><strong>推定尺(文字ベース):</strong> 約 ${estimatedDuration.toFixed(1)} 秒</div>
+      <div><strong>ショートモード:</strong> ${shortMode}</div>
       <div><strong>CTA:</strong> ${state.script.sections[0]?.cta || ''}</div>
     `;
   }
@@ -1779,6 +1806,50 @@
   if (aiGenerateBtn) {
     aiGenerateBtn.addEventListener('click', handleAIGenerate);
   }
+  if (tabButtons.length && tabContents.length) {
+    const activateTab = (id) => {
+      tabButtons.forEach((btn) => btn.classList.toggle('active', btn.dataset.tab === id));
+      tabContents.forEach((pane) => pane.classList.toggle('active', pane.id === id));
+    };
+    tabButtons.forEach((btn) =>
+      btn.addEventListener('click', () => {
+        activateTab(btn.dataset.tab);
+      })
+    );
+    activateTab('tab-script');
+  }
+
+  // VERSION 表示
+  if (appTitleEl && window.api?.getVersion) {
+    window.api
+      .getVersion()
+      .then((res) => {
+        if (res?.version) {
+          appTitleEl.innerHTML = `Auto Video Generator <small>v${res.version}</small>`;
+        }
+      })
+      .catch(() => {});
+  }
+  if (tabButtons.length && tabContents.length) {
+    const activateTab = (id) => {
+      tabButtons.forEach((btn) => btn.classList.toggle('active', btn.dataset.tab === id));
+      tabContents.forEach((pane) => pane.classList.toggle('active', pane.id === id));
+    };
+    tabButtons.forEach((btn) =>
+      btn.addEventListener('click', () => {
+        activateTab(btn.dataset.tab);
+      })
+    );
+    activateTab('tab-script');
+  }
+  if (aiShortAdjust) {
+    aiShortAdjust.addEventListener('change', () => {
+      if (!state.script) return;
+      if (!state.script.video) state.script.video = {};
+      state.script.video.short_mode = aiShortAdjust.checked ? 'short' : 'off';
+      renderSummary();
+    });
+  }
   if (trendBriefBtnYoutube) {
     trendBriefBtnYoutube.addEventListener('click', () => {
       window.api.openTrendWindow();
@@ -1819,6 +1890,14 @@
         audioClearBtn.disabled = false;
         audioClearBtn.textContent = '音声キャッシュ削除';
       }
+    });
+  }
+  if (shortModeCheck) {
+    shortModeCheck.addEventListener('change', () => {
+      if (!state.script) return;
+      if (!state.script.video) state.script.video = {};
+      state.script.video.short_mode = shortModeCheck.checked ? 'short' : 'off';
+      renderSummary();
     });
   }
   if (voiceSpeakerSelect) {
@@ -1865,6 +1944,92 @@
     }
     if (videoOpenBtn) {
       videoOpenBtn.disabled = !state.lastVideoPath;
+    }
+  }
+
+  async function refreshHistoryList() {
+    if (!historyListEl || !window.api?.listOutputs) return;
+    historyListEl.innerHTML = '<li class="history-item"><span class="history-path">読み込み中...</span></li>';
+    try {
+      const items = (await window.api.listOutputs()) || [];
+      if (!items.length) {
+        historyListEl.innerHTML = '<li class="history-item"><span class="history-path">動画がありません</span></li>';
+        return;
+      }
+      historyListEl.innerHTML = '';
+      items.forEach((item) => {
+        const li = document.createElement('li');
+        li.className = 'history-item';
+        const meta = document.createElement('div');
+        meta.className = 'history-meta';
+        const name = document.createElement('div');
+        name.className = 'history-name';
+        name.textContent = item.name;
+        const mtime = document.createElement('div');
+        mtime.textContent = new Date(item.mtime || Date.now()).toLocaleString('ja-JP');
+        const pathEl = document.createElement('div');
+        pathEl.className = 'history-path';
+        pathEl.textContent = item.path;
+        meta.appendChild(name);
+        meta.appendChild(mtime);
+        meta.appendChild(pathEl);
+        const actions = document.createElement('div');
+        actions.className = 'history-actions';
+        const openBtn = document.createElement('button');
+        openBtn.textContent = '開く';
+        openBtn.addEventListener('click', async () => {
+          try {
+            await window.api.openOutputPath({ path: item.path });
+          } catch (err) {
+            console.error(err);
+            setStatus('ファイルを開けませんでした。');
+          }
+        });
+        const delBtn = document.createElement('button');
+        delBtn.textContent = '削除';
+        delBtn.className = 'ghost';
+        delBtn.addEventListener('click', async () => {
+          if (!confirm(`削除しますか？\n${item.name}`)) return;
+          try {
+            await window.api.deleteOutput({ path: item.path });
+            setStatus('動画を削除しました。');
+            refreshHistoryList();
+          } catch (err) {
+            console.error(err);
+            setStatus('削除に失敗しました。');
+          }
+        });
+        actions.appendChild(openBtn);
+        const uploadBtn = document.createElement('button');
+        uploadBtn.textContent = 'アップロード';
+        uploadBtn.addEventListener('click', async () => {
+          setStatus('過去動画をアップロード中...');
+          try {
+            const title = item.name.replace(/\.[^.]+$/, '') || '自動生成動画';
+            await window.api.uploadVideo({
+              path: item.path,
+              title,
+              description: '',
+              tags: [],
+            });
+            setStatus('YouTubeへのアップロードを開始しました。ターミナル出力を確認してください。');
+          } catch (err) {
+            console.error(err);
+            setStatus(`アップロードに失敗しました: ${err.message || err}`);
+          }
+        });
+        actions.appendChild(uploadBtn);
+        actions.appendChild(delBtn);
+        li.appendChild(meta);
+        li.appendChild(actions);
+        historyListEl.appendChild(li);
+      });
+    } catch (err) {
+      console.error(err);
+      historyListEl.innerHTML =
+        `<li class="history-item"><span class="history-path">読み込みに失敗しました: ${
+          err?.message || err
+        }</span></li>`;
     }
   }
 
@@ -1917,6 +2082,9 @@
   }
   if (videoUploadBtn) {
     videoUploadBtn.addEventListener('click', handleVideoUpload);
+  }
+  if (historyRefreshBtn) {
+    historyRefreshBtn.addEventListener('click', refreshHistoryList);
   }
   if (schedulerBtn) {
     schedulerBtn.addEventListener('click', () => window.api.openSchedulerWindow());
@@ -1977,6 +2145,7 @@
   renderAssetResults();
   renderTimelineSummary();
   init();
+  refreshHistoryList();
 
   if (window.api.onAssetSelected) {
     window.api.onAssetSelected((payload) => {

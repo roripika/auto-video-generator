@@ -28,6 +28,8 @@ contextBridge.exposeInMainWorld('api', {
   uploadVideo: (payload) => ipcRenderer.invoke('video:upload', payload),
   openOutputPath: (payload) => ipcRenderer.invoke('video:open-output', payload),
   getLatestVideo: () => ipcRenderer.invoke('video:get-latest'),
+  listOutputs: () => ipcRenderer.invoke('video:list-outputs'),
+  deleteOutput: (payload) => ipcRenderer.invoke('video:delete-output', payload),
   scheduler: {
     list: () => ipcRenderer.invoke('scheduler:list'),
     save: (tasks) => ipcRenderer.invoke('scheduler:save', tasks),

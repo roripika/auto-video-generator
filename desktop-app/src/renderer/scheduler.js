@@ -96,6 +96,22 @@
         task.clear_cache = e.target.checked;
       });
 
+      const extraKeyword = document.createElement('input');
+      extraKeyword.type = 'text';
+      extraKeyword.maxLength = 20;
+      extraKeyword.placeholder = '20文字以内';
+      extraKeyword.value = task.extra_keyword || '';
+      extraKeyword.addEventListener('input', (e) => {
+        task.extra_keyword = (e.target.value || '').slice(0, 20);
+      });
+
+      const shortToggle = document.createElement('input');
+      shortToggle.type = 'checkbox';
+      shortToggle.checked = task.short_mode === 'short';
+      shortToggle.addEventListener('change', (e) => {
+        task.short_mode = e.target.checked ? 'short' : 'off';
+      });
+
       const categorySelect = document.createElement('select');
       const categories = [
         '未指定',
@@ -182,6 +198,8 @@
         <div>間隔(分): ${task.interval_minutes || 1440}</div>
         <div>自動アップロード: ${task.auto_upload !== false ? 'ON' : 'OFF'}</div>
         <div>キャッシュ消去: ${task.clear_cache !== false ? 'ON' : 'OFF'}</div>
+        <div>ショート: ${task.short_mode === 'short' ? 'ON' : 'OFF'}</div>
+        <div>追加KW(20文字以内): ${task.extra_keyword || 'なし'}</div>
         <div>開始まで(分): ${
           typeof task.start_offset_minutes === 'number' ? task.start_offset_minutes : '未指定'
         }</div>
@@ -197,6 +215,8 @@
       row.appendChild(wrapField('カテゴリ', categorySelect));
       row.appendChild(wrapField('自動アップロード', uploadToggle));
       row.appendChild(wrapField('音声キャッシュ消去', clearCacheToggle));
+      row.appendChild(wrapField('追加キーワード', extraKeyword));
+      row.appendChild(wrapField('ショート動画', shortToggle));
       row.appendChild(wrapField('有効', enabledToggle));
       row.appendChild(runBtn);
       row.appendChild(logBtn);
@@ -236,6 +256,7 @@
       const client = getScheduler();
       if (!client?.save) throw new Error('scheduler API not available');
       await client.save({ tasks, max_concurrent: maxConcurrent });
+      await loadTasks();
       taskStatus.textContent = 'タスクを保存しました。';
     } catch (err) {
       console.error(err);
@@ -253,6 +274,8 @@
         start_offset_minutes: 0,
         auto_upload: true,
         clear_cache: true,
+        extra_keyword: '',
+        short_mode: 'auto',
         enabled: true,
       });
       renderTasks();

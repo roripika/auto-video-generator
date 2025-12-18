@@ -21,7 +21,7 @@ if ! command -v pyenv >/dev/null 2>&1; then
 fi
 
 if $USE_PYENV; then
-  PYENV_VERSION="${PYENV_PYTHON_VERSION:-3.10.15}"
+  PYENV_VERSION="${PYENV_PYTHON_VERSION:-3.11.14}"
   if command -v brew >/dev/null 2>&1; then
     export LDFLAGS="-L/opt/homebrew/opt/zlib/lib -L/opt/homebrew/opt/sqlite/lib -L/opt/homebrew/opt/readline/lib -L/opt/homebrew/opt/gettext/lib ${LDFLAGS:-}"
     export CPPFLAGS="-I/opt/homebrew/opt/zlib/include -I/opt/homebrew/opt/sqlite/include -I/opt/homebrew/opt/readline/include -I/opt/homebrew/opt/gettext/include ${CPPFLAGS:-}"
@@ -40,9 +40,18 @@ if $USE_PYENV; then
   eval "$(pyenv init -)"
   PYTHON_BIN="$(pyenv root)/versions/$PYENV_VERSION/bin/python"
 else
-  if command -v brew >/dev/null 2>&1 && command -v /opt/homebrew/bin/python3 >/dev/null 2>&1; then
-    PYTHON_BIN="/opt/homebrew/bin/python3"
-    echo "[INFO] Using Homebrew python ($($PYTHON_BIN --version 2>/dev/null))."
+  if command -v brew >/dev/null 2>&1; then
+    BREW_PY311_PREFIX="$(brew --prefix python@3.11 2>/dev/null || true)"
+    if [[ -n "$BREW_PY311_PREFIX" && -x "$BREW_PY311_PREFIX/bin/python3.11" ]]; then
+      PYTHON_BIN="$BREW_PY311_PREFIX/bin/python3.11"
+      echo "[INFO] Using Homebrew python3.11 ($($PYTHON_BIN --version 2>/dev/null))."
+    elif command -v python3 >/dev/null 2>&1; then
+      PYTHON_BIN="$(command -v python3)"
+      echo "[INFO] Using system python3 ($(python3 --version 2>/dev/null)). Forより安定させるには pyenv か brew python@3.11 を入れてください。"
+    else
+      PYTHON_BIN="python3"
+      echo "[WARN] python3 が見つかりません。インストール後に再実行してください。"
+    fi
   else
     PYTHON_BIN="python3"
     echo "[INFO] Using system python3 ($(python3 --version 2>/dev/null)). For the most stable experience, install pyenv manually."

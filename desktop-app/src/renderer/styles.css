@@ -19,6 +19,19 @@ body {
   border-bottom: 1px solid #2a2a33;
 }
 
+.app-title {
+  font-weight: 700;
+  font-size: 16px;
+  color: #f3f3f3;
+  margin-right: 12px;
+}
+.app-title small {
+  font-weight: 500;
+  font-size: 12px;
+  color: #bfc5d2;
+  margin-left: 8px;
+}
+
 .app-header button,
 .app-header select,
 button,
@@ -244,7 +257,7 @@ textarea {
 }
 
 .settings-panel {
-  max-width: 560px;
+  width: min(1100px, 100%);
   margin: 0 auto;
   background: #1b1b23;
   border: 1px solid #2d2d36;
@@ -308,11 +321,11 @@ textarea {
 .task-item {
   border: 1px solid #2a2a33;
   border-radius: 8px;
-  padding: 10px;
+  padding: 14px;
   background: #20202a;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .task-title {
@@ -323,7 +336,7 @@ textarea {
 .task-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 12px;
   align-items: center;
 }
 
@@ -336,8 +349,8 @@ textarea {
 .task-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  min-width: 120px;
+  gap: 6px;
+  min-width: 150px;
 }
 
 .task-label {
@@ -474,6 +487,57 @@ textarea {
   padding: 10px;
   box-sizing: border-box;
   font-family: 'SFMono-Regular', Consolas, monospace;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.history-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid #2d2d36;
+  border-radius: 8px;
+  background: #111119;
+}
+
+.history-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 220px;
+}
+
+.history-name {
+  font-weight: 700;
+}
+
+.history-path {
+  font-size: 0.8rem;
+  color: #a0a0a8;
+  word-break: break-all;
+}
+
+.history-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .asset-results li {
@@ -680,4 +744,37 @@ textarea {
   .section-preview__canvas {
     max-width: 100%;
   }
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin: 12px 12px 0;
+}
+.tab-btn {
+  padding: 8px 14px;
+  border: 1px solid #444;
+  background: #1e1e1e;
+  color: #f3f3f3;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+}
+.tab-btn.active {
+  background: #2d2d2d;
+  border-bottom: 1px solid #2d2d2d;
+  font-weight: 600;
+}
+.tab-content {
+  display: none;
+}
+.tab-content.active {
+  display: block;
+}
+
+.panel--theme .theme-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
 }

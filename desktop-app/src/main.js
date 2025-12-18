@@ -9,6 +9,7 @@ const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const THEMES_DIR = path.join(PROJECT_ROOT, 'configs', 'themes');
 const SETTINGS_DIR = path.join(PROJECT_ROOT, 'settings');
 const SETTINGS_FILE = path.join(SETTINGS_DIR, 'ai_settings.json');
+const VERSION_FILE = path.join(PROJECT_ROOT, 'VERSION');
 const PROVIDER_PRESETS = {
   openai: {
     label: 'OpenAI',
@@ -301,6 +302,17 @@ function registerHandlers() {
     currentSettings = saveAISettings(sanitized);
     return currentSettings;
   });
+  ipcMain.handle('app:version', () => {
+    try {
+      if (fs.existsSync(VERSION_FILE)) {
+        const v = fs.readFileSync(VERSION_FILE, 'utf-8').trim();
+        return { version: v || 'dev' };
+      }
+    } catch (err) {
+      console.error('Failed to load VERSION', err);
+    }
+    return { version: 'dev' };
+  });
   ipcMain.handle('scripts:generate-from-brief', async (event, payload) => {
     const { brief, themeId, sections } = payload || {};
     if (!brief || !brief.trim()) {
@@ -587,6 +599,55 @@ function registerHandlers() {
       return { path: null };
     }
   });
+  ipcMain.handle('video:list-outputs', async () => {
+    try {
+      fs.mkdirSync(OUTPUTS_DIR, { recursive: true });
+      if (!fs.existsSync(OUTPUTS_DIR)) return [];
+      const entries = fs
+        .readdirSync(OUTPUTS_DIR)
+        .filter((f) => f.toLowerCase().endsWith('.mp4'))
+        .map((file) => {
+          try {
+            const p = path.join(OUTPUTS_DIR, file);
+            const st = fs.statSync(p);
+            return {
+              name: file,
+              path: p,
+              mtime: st.mtimeMs,
+              size: st.size,
+            };
+          } catch (err) {
+            console.error('stat failed for output', file, err);
+            return null;
+          }
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.mtime - a.mtime);
+      return entries;
+    } catch (err) {
+      console.error('Failed to list outputs', err);
+      return [];
+    }
+  });
+  ipcMain.handle('video:delete-output', async (_event, payload) => {
+    const target = payload?.path;
+    if (!target) throw new Error('path is required');
+    const resolved = path.resolve(target);
+    const outputsRoot = path.resolve(OUTPUTS_DIR);
+    if (!resolved.startsWith(outputsRoot)) {
+      throw new Error('invalid path');
+    }
+    const base = resolved.replace(/\.[^.]+$/, '');
+    const siblings = [resolved, `${base}.srt`, `${base}.json`, `${base}.yaml`];
+    siblings.forEach((p) => {
+      try {
+        if (fs.existsSync(p)) fs.unlinkSync(p);
+      } catch (err) {
+        console.error('Failed to delete file', p, err);
+      }
+    });
+    return { ok: true };
+  });
   ipcMain.handle('video:upload', async (event, payload) => {
     const videoPath = payload?.path;
     if (!videoPath) throw new Error('動画パスが指定されていません。');
@@ -683,6 +744,22 @@ function registerHandlers() {
       auto_upload: task.auto_upload !== false,
       clear_cache: task.clear_cache !== false,
       enabled: task.enabled !== false,
+      category:
+        typeof task.category === 'string'
+          ? task.category
+          : task.category === null
+          ? null
+          : '',
+      short_mode:
+        task.short_mode === 'short'
+          ? 'short'
+          : task.short_mode === 'auto'
+          ? 'auto'
+          : 'off',
+      extra_keyword:
+        typeof task.extra_keyword === 'string'
+          ? task.extra_keyword.slice(0, 20)
+          : '',
     };
   };
 
@@ -745,11 +822,18 @@ function registerHandlers() {
     (tasks || []).map((task) => {
       if (!task.id) return task;
       const meta = getLatestLogInfo(task.id);
+      const runtimeMeta = schedulerTimers[task.id];
+      const lastRunIso =
+        runtimeMeta?.lastRunAtMs != null
+          ? new Date(runtimeMeta.lastRunAtMs).toISOString()
+          : meta?.runAt || null;
+      const lastLogPath = runtimeMeta?.logPath || meta?.logPath || null;
       const intervalMin = clampNumber(task.interval_minutes, 1, 10080, 1440);
       let nextRun = null;
       if (task.enabled !== false) {
-        if (meta?.runAt) {
-          const lastMs = Date.parse(meta.runAt);
+        const baseLastRun = lastRunIso || task.last_run_at || null;
+        if (baseLastRun) {
+          const lastMs = Date.parse(baseLastRun);
           if (!Number.isNaN(lastMs)) {
             nextRun = new Date(lastMs + intervalMin * 60 * 1000).toISOString();
           }
@@ -764,8 +848,8 @@ function registerHandlers() {
       }
       return {
         ...task,
-        last_log_path: meta?.logPath || null,
-        last_run_at: meta?.runAt || null,
+        last_log_path: lastLogPath,
+        last_run_at: lastRunIso,
         next_run_at: nextRun,
       };
     });
@@ -810,6 +894,12 @@ function registerHandlers() {
     if (task.category) {
       args.push('--llm-category', task.category);
     }
+    if (task.short_mode) {
+      args.push('--short-mode', task.short_mode);
+    }
+    if (task.extra_keyword) {
+      args.push('--extra-keyword', task.extra_keyword);
+    }
     const wantUpload = task.auto_upload !== false;
     if (wantUpload && currentSettings.youtubeClientSecretsPath) {
       args.push('--youtube-client-secrets', currentSettings.youtubeClientSecretsPath);
@@ -852,6 +942,7 @@ function registerHandlers() {
 
   const enqueueTask = (task, { swallowErrors = true } = {}) => {
     schedulerQueue = schedulerQueue
+      .catch(() => null) // reset queue if previous job failed
       .then(() => runTaskNow(task))
       .catch((err) => {
         if (swallowErrors) {
@@ -874,8 +965,28 @@ function registerHandlers() {
           task.start_offset_minutes !== undefined && task.start_offset_minutes !== null
             ? Math.max(0, Number(task.start_offset_minutes) || 0)
             : intervalMin;
-        const firstDelayMs = startOffsetMin * 60 * 1000;
-        const runner = () => enqueueTask(task, { swallowErrors: true });
+        const meta = getLatestLogInfo(task.id);
+        const lastRunMs = meta?.runAt ? Date.parse(meta.runAt) : NaN;
+        const nowMs = Date.now();
+        let firstDelayMs = startOffsetMin * 60 * 1000;
+        if (!Number.isNaN(lastRunMs)) {
+          const remaining = intervalMs - (nowMs - lastRunMs);
+          if (remaining > 0) {
+            firstDelayMs = Math.max(firstDelayMs, remaining);
+          } else {
+            firstDelayMs = Math.max(0, firstDelayMs);
+          }
+        }
+        const runner = () =>
+          enqueueTask(task, { swallowErrors: true }).then((res) => {
+            const logPath = res?.logPath;
+            schedulerTimers[task.id] = {
+              ...(schedulerTimers[task.id] || {}),
+              lastRunAtMs: Date.now(),
+              logPath,
+            };
+            return res;
+          });
         const handleIntervalStart = () => {
           const interval = setInterval(runner, intervalMs);
           schedulerTimers[task.id] = { ...(schedulerTimers[task.id] || {}), interval };

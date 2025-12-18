@@ -7,9 +7,9 @@
   </head>
   <body>
     <header class="app-header">
+      <div class="app-title">Auto Video Generator</div>
       <div class="left-controls">
-        <button id="newScriptBtn">新規 (テーマから)</button>
-        <select id="themeSelect"></select>
+        <span class="meta">台本編集タブでテーマ選択</span>
       </div>
       <div class="right-controls">
         <button id="settingsBtn" class="ghost">設定</button>
@@ -19,151 +19,188 @@
         <button id="schedulerBtn" class="ghost">定期実行</button>
       </div>
     </header>
-
-    <section class="panel panel--ai">
-      <h2>AI 台本生成 <button class="info-btn" data-info="brief">i</button></h2>
-      <textarea
-        id="aiBriefInput"
-        placeholder="例: 忙しい朝でもできる驚きの時短ライフハックをランキング形式で紹介したい…"
-      ></textarea>
-      <div class="ai-controls">
-        <label>
-          セクション数
-          <input id="aiSectionsInput" type="number" min="3" max="10" value="5" />
-        </label>
-        <div class="trend-brief-buttons">
-          <button id="trendBriefBtnYoutube" class="ghost">YouTubeランキングから文言生成</button>
-          <button id="trendBriefBtnLlm" class="ghost">AIトレンドから文言生成</button>
-        </div>
-        <button id="aiGenerateBtn" class="primary">AI で生成</button>
-      </div>
-      <p class="ai-hint">テーマは上部セレクトで選択したものが利用されます。</p>
-    </section>
-
-    <section class="panel panel--assets">
-      <h2>背景素材 <button class="info-btn" data-info="assets">i</button></h2>
-      <label>現在の背景
-        <input id="bgPathInput" type="text" placeholder="assets/cache/..." readonly />
-      </label>
-      <div class="asset-actions" style="gap:8px; display:flex; flex-wrap:wrap;">
-        <button id="bgBrowseBtn">ファイルを選択</button>
-        <button id="assetOpenWindowBtn" class="ghost">別ウインドウで検索</button>
-      </div>
-    </section>
-
-    <section class="panel panel--text-style">
-      <h2>テキストスタイル <button class="info-btn" data-info="textstyle">i</button></h2>
-      <div class="text-style-grid">
-        <label>フォント
-          <input id="textFontInput" type="text" placeholder="Noto Sans JP" />
-        </label>
-        <label>フォントサイズ
-          <input id="textFontSizeInput" type="number" min="24" max="120" step="2" />
-        </label>
-        <label>文字色
-          <input id="textFillInput" type="color" />
-        </label>
-        <label>縁取り色
-          <input id="textStrokeColorInput" type="color" />
-        </label>
-        <label>縁取り幅
-          <input id="textStrokeWidthInput" type="number" min="0" max="20" />
-        </label>
-        <label>位置 X
-          <input id="textPosXInput" type="text" placeholder="center / left+40 / 数値" />
-        </label>
-        <label>位置 Y
-          <input id="textPosYInput" type="text" placeholder="bottom-180 / 数値" />
-        </label>
-        <label>アニメーション
-          <input id="textAnimationInput" type="text" placeholder="fade, slide-in 等" />
-        </label>
-      </div>
-    </section>
-
-    <section class="panel panel--bgm">
-      <h2>BGM設定 <button class="info-btn" data-info="bgm">i</button></h2>
-      <label>ファイル/URL
-        <input id="bgmFileInput" type="text" placeholder="assets/bgm/lofi.mp3 または https://..." />
-      </label>
-      <div class="asset-actions" style="gap:8px; display:flex; flex-wrap:wrap;">
-        <button id="bgmBrowseBtn">ファイルを選択</button>
-        <button id="bgmOpenWindowBtn" class="ghost">ライブラリから選ぶ</button>
-        <button id="bgmClearBtn" class="ghost">クリア</button>
-      </div>
-      <div class="bgm-grid">
-        <label>音量 (dB)
-          <input id="bgmVolumeInput" type="number" step="1" min="-40" max="0" placeholder="-10" />
-        </label>
-        <label>ナレーション時の ducking (dB)
-          <input id="bgmDuckingInput" type="number" step="1" min="-40" max="0" placeholder="-16" />
-        </label>
-      </div>
-      <label>ライセンス表記メモ
-        <input id="bgmLicenseInput" type="text" placeholder="例: Music: _____ (Pixabay License)" />
-      </label>
-    </section>
-
-    <section class="panel panel--audio">
-      <h2>音声 & タイムライン</h2>
-      <div class="audio-controls">
-        <button id="audioGenerateBtn">VOICEVOX で音声生成</button>
-        <button id="timelineRefreshBtn">タイムライン更新</button>
-        <button id="audioClearBtn" class="ghost">音声キャッシュ削除</button>
-      </div>
-      <div class="audio-controls">
-        <label>話者
-          <select id="voiceSpeakerSelect"></select>
-        </label>
-        <span id="voiceSpeakerLabel" class="meta"></span>
-      </div>
-      <div id="timelineSummary" class="timeline-summary">未計算</div>
-    </section>
-
-    <section class="panel panel--video">
-      <h2>動画生成</h2>
-      <div class="video-controls">
-        <button id="videoGenerateBtn" class="primary">動画を生成</button>
-        <button id="videoOpenBtn" disabled>生成動画を開く</button>
-        <button id="videoUploadBtn" class="ghost" disabled>YouTubeへアップロード</button>
-        <label class="inline-checkbox">
-          <input type="checkbox" id="clearAudioOnVideo" checked />
-          <span>音声キャッシュをクリア</span>
-        </label>
-      </div>
-      <textarea id="videoLog" class="video-log" readonly></textarea>
-    </section>
-
-    <main class="layout">
-      <section class="panel panel--sidebar">
-        <h2>セクション一覧</h2>
-        <ul id="sectionList" class="section-list"></ul>
-        <button id="addSectionBtn">セクション追加</button>
-      </section>
-
-  <section class="panel panel--form">
-    <h2>セクション編集</h2>
-    <div id="sectionForm" class="form-grid"></div>
-    <div class="section-preview">
-      <div class="section-preview__label">プレビュー (50% 縮尺・配置のみ)</div>
-      <div id="sectionPreview" class="section-preview__canvas">
-        <div id="sectionPreviewBg" class="section-preview__bg"></div>
-        <div id="sectionPreviewTexts" class="section-preview__texts"></div>
-      </div>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="tab-script">台本編集</button>
+      <button class="tab-btn" data-tab="tab-assets">素材・音声</button>
+      <button class="tab-btn" data-tab="tab-video">動画・アップロード</button>
     </div>
-  </section>
 
-      <section class="panel panel--preview">
-        <h2>プレビュー</h2>
-        <div id="summaryPanel" class="summary"></div>
-        <h3>YAML</h3>
-        <div class="yaml-actions">
-          <button id="yamlEditBtn">編集</button>
-          <button id="yamlApplyBtn" class="primary" disabled>適用</button>
+    <div id="tab-script" class="tab-content active">
+      <section class="panel panel--theme">
+        <h2>テーマ選択</h2>
+        <div class="theme-controls">
+          <button id="newScriptBtn">新規 (テーマから)</button>
+          <select id="themeSelect"></select>
         </div>
-        <textarea id="yamlPreview" readonly></textarea>
       </section>
-    </main>
+
+      <section class="panel panel--ai">
+        <h2>AI 台本生成 <button class="info-btn" data-info="brief">i</button></h2>
+        <textarea
+          id="aiBriefInput"
+          placeholder="例: 忙しい朝でもできる驚きの時短ライフハックをランキング形式で紹介したい…"
+        ></textarea>
+        <div class="ai-controls">
+          <label>
+            セクション数
+            <input id="aiSectionsInput" type="number" min="3" max="10" value="5" />
+          </label>
+          <label class="inline-checkbox">
+            <input id="aiShortAdjust" type="checkbox" />
+            <span>ショート調整（1分以内目標）</span>
+          </label>
+          <div class="trend-brief-buttons">
+            <button id="trendBriefBtnYoutube" class="ghost">YouTubeランキングから文言生成</button>
+            <button id="trendBriefBtnLlm" class="ghost">AIトレンドから文言生成</button>
+          </div>
+          <button id="aiGenerateBtn" class="primary">AI で生成</button>
+        </div>
+        <p class="ai-hint">テーマは上部セレクトで選択したものが利用されます。</p>
+      </section>
+
+      <main class="layout">
+        <section class="panel panel--sidebar">
+          <h2>セクション一覧</h2>
+          <ul id="sectionList" class="section-list"></ul>
+          <button id="addSectionBtn">セクション追加</button>
+        </section>
+
+        <section class="panel panel--form">
+          <h2>セクション編集</h2>
+          <div id="sectionForm" class="form-grid"></div>
+          <div class="section-preview">
+            <div class="section-preview__label">プレビュー (50% 縮尺・配置のみ)</div>
+            <div id="sectionPreview" class="section-preview__canvas">
+              <div id="sectionPreviewBg" class="section-preview__bg"></div>
+              <div id="sectionPreviewTexts" class="section-preview__texts"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel panel--preview">
+          <h2>プレビュー</h2>
+          <div id="summaryPanel" class="summary"></div>
+          <h3>YAML</h3>
+          <div class="yaml-actions">
+            <button id="yamlEditBtn">編集</button>
+            <button id="yamlApplyBtn" class="primary" disabled>適用</button>
+          </div>
+          <textarea id="yamlPreview" readonly></textarea>
+        </section>
+      </main>
+    </div>
+
+    <div id="tab-assets" class="tab-content">
+      <section class="panel panel--assets">
+        <h2>背景素材 <button class="info-btn" data-info="assets">i</button></h2>
+        <label>現在の背景
+          <input id="bgPathInput" type="text" placeholder="assets/cache/..." readonly />
+        </label>
+        <div class="asset-actions" style="gap:8px; display:flex; flex-wrap:wrap;">
+          <button id="bgBrowseBtn">ファイルを選択</button>
+          <button id="assetOpenWindowBtn" class="ghost">別ウインドウで検索</button>
+        </div>
+      </section>
+
+      <section class="panel panel--text-style">
+        <h2>テキストスタイル <button class="info-btn" data-info="textstyle">i</button></h2>
+        <div class="text-style-grid">
+          <label>フォント
+            <input id="textFontInput" type="text" placeholder="Noto Sans JP" />
+          </label>
+          <label>フォントサイズ
+            <input id="textFontSizeInput" type="number" min="24" max="120" step="2" />
+          </label>
+          <label>文字色
+            <input id="textFillInput" type="color" />
+          </label>
+          <label>縁取り色
+            <input id="textStrokeColorInput" type="color" />
+          </label>
+          <label>縁取り幅
+            <input id="textStrokeWidthInput" type="number" min="0" max="20" />
+          </label>
+          <label>位置 X
+            <input id="textPosXInput" type="text" placeholder="center / left+40 / 数値" />
+          </label>
+          <label>位置 Y
+            <input id="textPosYInput" type="text" placeholder="bottom-180 / 数値" />
+          </label>
+          <label>アニメーション
+            <input id="textAnimationInput" type="text" placeholder="fade, slide-in 等" />
+          </label>
+        </div>
+      </section>
+
+      <section class="panel panel--bgm">
+        <h2>BGM設定 <button class="info-btn" data-info="bgm">i</button></h2>
+        <label>ファイル/URL
+          <input id="bgmFileInput" type="text" placeholder="assets/bgm/lofi.mp3 または https://..." />
+        </label>
+        <div class="asset-actions" style="gap:8px; display:flex; flex-wrap:wrap;">
+          <button id="bgmBrowseBtn">ファイルを選択</button>
+          <button id="bgmOpenWindowBtn" class="ghost">ライブラリから選ぶ</button>
+          <button id="bgmClearBtn" class="ghost">クリア</button>
+        </div>
+        <div class="bgm-grid">
+          <label>音量 (dB)
+            <input id="bgmVolumeInput" type="number" step="1" min="-40" max="0" placeholder="-10" />
+          </label>
+          <label>ナレーション時の ducking (dB)
+            <input id="bgmDuckingInput" type="number" step="1" min="-40" max="0" placeholder="-16" />
+          </label>
+        </div>
+        <label>ライセンス表記メモ
+          <input id="bgmLicenseInput" type="text" placeholder="例: Music: _____ (Pixabay License)" />
+        </label>
+      </section>
+
+      <section class="panel panel--audio">
+        <h2>音声 & タイムライン</h2>
+        <div class="audio-controls">
+          <button id="audioGenerateBtn">VOICEVOX で音声生成</button>
+          <button id="timelineRefreshBtn">タイムライン更新</button>
+          <button id="audioClearBtn" class="ghost">音声キャッシュ削除</button>
+        </div>
+        <div class="audio-controls">
+          <label>話者
+            <select id="voiceSpeakerSelect"></select>
+          </label>
+          <span id="voiceSpeakerLabel" class="meta"></span>
+        </div>
+        <div id="timelineSummary" class="timeline-summary">未計算</div>
+      </section>
+    </div>
+
+    <div id="tab-video" class="tab-content">
+      <section class="panel panel--video">
+        <h2>動画生成</h2>
+        <div class="video-controls">
+          <button id="videoGenerateBtn" class="primary">動画を生成</button>
+          <button id="videoOpenBtn" disabled>生成動画を開く</button>
+          <button id="videoUploadBtn" class="ghost" disabled>YouTubeへアップロード</button>
+          <label class="inline-checkbox">
+            <input type="checkbox" id="clearAudioOnVideo" checked />
+            <span>音声キャッシュをクリア</span>
+          </label>
+          <label class="inline-checkbox">
+            <input type="checkbox" id="shortModeCheck" />
+            <span>ショート動画モード（縦長・60秒以内）</span>
+          </label>
+        </div>
+        <textarea id="videoLog" class="video-log" readonly></textarea>
+      </section>
+
+      <section class="panel panel--history">
+        <div class="history-header">
+          <h2>過去の生成動画</h2>
+          <div class="history-actions">
+            <button id="historyRefreshBtn" class="ghost">更新</button>
+          </div>
+        </div>
+        <ul id="historyList" class="history-list"></ul>
+      </section>
+    </div>
 
     <div id="settingsModal" class="modal hidden">
       <div class="modal__content">

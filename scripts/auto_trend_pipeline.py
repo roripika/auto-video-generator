@@ -118,14 +118,16 @@ def run_script_generation(
     sections: int,
     output_dir: Path,
     brief_override: Optional[str] = None,
+    extra_keyword: Optional[str] = None,
 ) -> Optional[Path]:
     """Invoke generate_script_from_brief.py to produce a Script YAML for the keyword."""
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    slug = slugify(keyword)
+    effective_kw = f"{extra_keyword} {keyword}".strip() if extra_keyword else keyword
+    slug = slugify(effective_kw)
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / f"{slug}_{ts}.yaml"
 
-    brief = brief_override or brief_template.format(keyword=keyword)
+    brief = brief_override or brief_template.format(keyword=effective_kw)
     cmd = [
         sys.executable,
         str(PROJECT_ROOT / "scripts" / "generate_script_from_brief.py"),
@@ -144,6 +146,24 @@ def run_script_generation(
         print(f"[ERROR] Script generation failed for '{keyword}'. 詳細は上記ログを確認してください。")
         return None
     return output_path
+
+
+def override_short_mode(script_path: Path, short_mode: str) -> None:
+    """Force-set video.short_mode on the generated script if specified."""
+    if short_mode == "inherit":
+        return
+    try:
+        data = yaml.safe_load(script_path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            return
+        video_cfg = data.get("video")
+        if not isinstance(video_cfg, dict):
+            video_cfg = {}
+            data["video"] = video_cfg
+        video_cfg["short_mode"] = short_mode
+        script_path.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    except Exception as err:
+        print(f"[WARN] short_mode の上書きに失敗しました: {err}")
 
 
 def run_video_generation(script_path: Path, config_path: Optional[Path]) -> Optional[Path]:
@@ -345,7 +365,12 @@ def fetch_llm_topics(args) -> List[dict]:
         print("[ERROR] --source llm は利用できません。scripts/fetch_trend_ideas_llm.py を確認してください。")
         return []
     try:
-        data = fetch_trend_ideas_via_llm(max_ideas=args.max_keywords, language=args.language, category=args.llm_category)
+        data = fetch_trend_ideas_via_llm(
+            max_ideas=args.max_keywords,
+            language=args.language,
+            category=args.llm_category,
+            extra_keyword=args.extra_keyword,
+        )
     except Exception as err:
         print(f"[ERROR] LLMからトピックを取得できませんでした: {err}")
         return []
@@ -476,7 +501,7 @@ def run_once(args: argparse.Namespace) -> None:
         if fragments:
             fragment_text = "\n元フレーズ案 (短い断言で記述):\n" + "\n".join(f"- {frag}" for frag in fragments)
             brief = f"{brief}\n\n{fragment_text}"
-        tasks.append({"keyword": kw, "brief": brief, "theme_id": args.theme_id})
+        tasks.append({"keyword": kw, "brief": brief, "theme_id": args.theme_id, "extra_kw": args.extra_keyword})
 
     output_script_dir = PROJECT_ROOT / "scripts" / "generated" / "auto_trend"
     # Clear audio/cache before each cycle if requested
@@ -484,7 +509,11 @@ def run_once(args: argparse.Namespace) -> None:
         clear_audio_cache(PROJECT_ROOT / "work")
 
     if tasks:
-        keywords_to_record = [task["keyword"] for task in tasks if task.get("keyword")]
+        keywords_to_record = [
+            (f"{task.get('extra_kw')} {task['keyword']}".strip() if task.get("extra_kw") else task["keyword"])
+            for task in tasks
+            if task.get("keyword")
+        ]
         history_entries, history_lookup = record_topic_history(
             args.history_file, history_entries, history_lookup, keywords_to_record, args.history_days
         )
@@ -500,9 +529,11 @@ def run_once(args: argparse.Namespace) -> None:
             sections=args.sections,
             output_dir=output_script_dir,
             brief_override=brief,
+            extra_keyword=item.get("extra_kw"),
         )
         if not script_path:
             continue
+        override_short_mode(script_path, args.short_mode)
         video_path = run_video_generation(script_path, args.config)
         if not video_path:
             continue
@@ -518,21 +549,30 @@ def run_once(args: argparse.Namespace) -> None:
             title = meta_title or f"{kw} トレンド解説"
             desc = meta_desc or f"{kw} に関する自動生成動画です。作成日時: {datetime.datetime.now():%Y-%m-%d %H:%M}"
             tags = meta_tags or [kw, "トレンド", "自動生成"]
-            maybe_upload_to_youtube(
-                video_path=video_path,
-                title=title,
-                description=desc,
-                tags=tags,
-                client_secrets=args.youtube_client_secrets,
-                credentials_path=args.youtube_credentials,
-                privacy_status=args.youtube_privacy,
-                thumbnail_text=title,
-            )
+            try:
+                maybe_upload_to_youtube(
+                    video_path=video_path,
+                    title=title,
+                    description=desc,
+                    tags=tags,
+                    client_secrets=args.youtube_client_secrets,
+                    credentials_path=args.youtube_credentials,
+                    privacy_status=args.youtube_privacy,
+                    thumbnail_text=title,
+                )
+            except Exception as err:
+                print(f"[WARN] YouTube upload skipped/failed but処理を継続します: {err}")
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate scripts/videos directly from AI-generated monthly topics (optionally upload to YouTube)."
+    )
+    parser.add_argument(
+        "--short-mode",
+        choices=["off", "auto", "short", "inherit"],
+        default="auto",
+        help="video.short_mode を上書きする（auto: 60秒以下で縦長, inherit: 生成結果そのまま）",
     )
     parser.add_argument(
         "--max-keywords",
@@ -542,6 +582,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--language", default="ja", help="LLMソース時の言語ヒント (default: ja)")
     parser.add_argument("--llm-category", default=None, help="LLMソース時のカテゴリを固定したい場合に指定（任意）")
+    parser.add_argument(
+        "--extra-keyword",
+        default=None,
+        help="任意の追加キーワード（20文字以内推奨）。ブリーフ生成時に先頭へ付与。",
+    )
     parser.add_argument(
         "--brief-template",
         default=(

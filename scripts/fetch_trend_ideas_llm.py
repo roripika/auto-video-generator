@@ -57,7 +57,12 @@ def build_client(args: argparse.Namespace) -> Any:
     )
 
 
-def build_messages(language: str, max_ideas: int, category: str | None = None) -> List[Dict[str, str]]:
+def build_messages(
+    language: str,
+    max_ideas: int,
+    category: str | None = None,
+    extra_keyword: str | None = None,
+) -> List[Dict[str, str]]:
     categories = [
         "ライフハック",
         "時事ネタ",
@@ -109,9 +114,13 @@ def build_messages(language: str, max_ideas: int, category: str | None = None) -
 }
 """
     category_hint = f"カテゴリは「{category}」で固定してください。" if category else f"必ず category を次のリストから選択してください: {categories_str}"
+    extra_hint = ""
+    if extra_keyword:
+        extra_hint = f"追加キーワード「{extra_keyword}」に関連した切り口を必ず混ぜてください。偏りすぎないように、全{max_ideas}件のうち一部は関連トピックで構成してください。"
     user_prompt = f"""日本向けショート雑学/解説動画のネタを最大 {max_ideas} 件返してください。
 language="{language}"、region="JP" を前提に、priority_score が高い順になるようにしてください。
 {category_hint}
+{extra_hint}
 各トピックには 12〜18 文字程度の短いタイトル、1〜2文の brief、そして 6〜10 個の短い断言フレーズ (seed_phrases) を含めてください。"""
     return [
         {"role": "system", "content": system_prompt.strip()},
@@ -204,6 +213,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, help="出力先 JSON パス。未指定なら scripts/generated/trend_ideas_<timestamp>.json")
     parser.add_argument("--max-ideas", type=int, default=50, help="取得するアイデアの最大数")
     parser.add_argument("--language", default="ja", help="言語ヒント (default: ja)")
+    parser.add_argument("--extra-keyword", help="追加キーワード（関連トピックを混ぜるヒント）")
     parser.add_argument("--provider", choices=["openai", "anthropic", "gemini"], help="LLM プロバイダ")
     parser.add_argument("--api-key", help="API キー（未指定時は設定ファイル/環境変数）")
     parser.add_argument("--model", help="モデル ID")
@@ -235,6 +245,7 @@ def main() -> None:
             base_url=args.base_url,
             temperature=args.temperature,
             max_tokens=args.max_tokens,
+            extra_keyword=args.extra_keyword,
         )
         output_path = resolve_output_path(args)
         if args.stdout:
@@ -254,6 +265,7 @@ def fetch_trend_ideas_via_llm(
     max_ideas: int = 50,
     language: str = "ja",
     category: str | None = None,
+    extra_keyword: str | None = None,
     provider: str | None = None,
     api_key: str | None = None,
     model: str | None = None,
@@ -275,7 +287,7 @@ def fetch_trend_ideas_via_llm(
         max_tokens=max_tokens,
     )
     client = build_client(args)
-    messages = build_messages(language, max_ideas, category)
+    messages = build_messages(language, max_ideas, category, extra_keyword)
     attempts = max(1, retries)
     last_err: Exception | None = None
     last_err: Exception | None = None
