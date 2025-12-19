@@ -16,10 +16,10 @@
     "note": "台本タブへ"
   },
   {
-    "action": "select",
+    "action": "waitForSelector",
     "target": "#themeSelect",
-    "value": "",
-    "note": "テーマを選択（任意で既存テーマを選ぶ）"
+    "state": "visible",
+    "note": "テーマセレクトが表示されるまで待つ（選択はスキップ）"
   },
   {
     "action": "fill",
