@@ -5,50 +5,10 @@
     "note": "Electron 起動後のウインドウ（URL はダミー。実際は mainWindow の初期 URL）"
   },
   {
-    "action": "click",
-    "target": "#settingsBtn",
-    "note": "設定タブを開く"
-  },
-  {
     "action": "waitForSelector",
-    "target": "#settingsModal:not(.hidden)",
+    "target": "#themeSelect",
     "state": "visible",
-    "note": "設定モーダルが開くのを待機"
-  },
-  {
-    "action": "fill",
-    "target": "#settingsApiKey",
-    "value": "sk-xxxxx",
-    "note": "OpenAI/Gemini など API Key（ダミー）"
-  },
-  {
-    "action": "fill",
-    "target": "#settingsPexelsKey",
-    "value": "PEXELS_KEY",
-    "note": "Pexels Key（ダミー）"
-  },
-  {
-    "action": "fill",
-    "target": "#settingsPixabayKey",
-    "value": "PIXABAY_KEY",
-    "note": "Pixabay Key（ダミー）"
-  },
-  {
-    "action": "fill",
-    "target": "#settingsYoutubeClientSecrets",
-    "value": "/path/to/client_secret.json",
-    "note": "YouTube client_secret.json パス（ダミー）"
-  },
-  {
-    "action": "fill",
-    "target": "#settingsYoutubeCredentials",
-    "value": "/path/to/youtube_credentials.pickle",
-    "note": "YouTube credentials.pickle パス（ダミー）"
-  },
-  {
-    "action": "click",
-    "target": "#settingsSaveBtn",
-    "note": "設定保存"
+    "note": "起動完了待ち（設定は事前に済ませておく）"
   },
   {
     "action": "click",
