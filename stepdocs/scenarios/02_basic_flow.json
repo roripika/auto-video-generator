@@ -1,0 +1,129 @@
+[
+  {
+    "action": "goto",
+    "target": "app://desktop",
+    "note": "Electron 起動後のウインドウ（URL はダミー。実際は mainWindow の初期 URL）"
+  },
+  {
+    "action": "click",
+    "target": "#settingsBtn",
+    "note": "設定タブを開く"
+  },
+  {
+    "action": "fill",
+    "target": "#settingsApiKey",
+    "value": "sk-xxxxx",
+    "note": "OpenAI/Gemini など API Key（ダミー）"
+  },
+  {
+    "action": "fill",
+    "target": "#settingsPexelsKey",
+    "value": "PEXELS_KEY",
+    "note": "Pexels Key（ダミー）"
+  },
+  {
+    "action": "fill",
+    "target": "#settingsPixabayKey",
+    "value": "PIXABAY_KEY",
+    "note": "Pixabay Key（ダミー）"
+  },
+  {
+    "action": "fill",
+    "target": "#settingsYoutubeClientSecrets",
+    "value": "/path/to/client_secret.json",
+    "note": "YouTube client_secret.json パス（ダミー）"
+  },
+  {
+    "action": "fill",
+    "target": "#settingsYoutubeCredentials",
+    "value": "/path/to/youtube_credentials.pickle",
+    "note": "YouTube credentials.pickle パス（ダミー）"
+  },
+  {
+    "action": "click",
+    "target": "#settingsSaveBtn",
+    "note": "設定保存"
+  },
+  {
+    "action": "click",
+    "target": ".tab-btn[data-tab=\"tab-script\"]",
+    "note": "台本タブへ"
+  },
+  {
+    "action": "fill",
+    "target": "#scriptTheme",
+    "value": "AI の活用で暮らしが変わるトピック",
+    "note": "テーマを入力"
+  },
+  {
+    "action": "fill",
+    "target": "#scriptBrief",
+    "value": "暮らしに役立つ AI 活用事例を 3 つ紹介して。イントロとまとめも入れてください。",
+    "note": "ブリーフを入力"
+  },
+  {
+    "action": "check",
+    "target": "#scriptShortAdjust",
+    "note": "ショート調整 ON（ショート動画向け）"
+  },
+  {
+    "action": "click",
+    "target": "#aiGenerateBtn",
+    "note": "AI 台本生成を実行"
+  },
+  {
+    "action": "waitForSelector",
+    "target": "#sectionList li",
+    "state": "visible",
+    "note": "セクション一覧が出るまで待機"
+  },
+  {
+    "action": "click",
+    "target": ".tab-btn[data-tab=\"tab-assets\"]",
+    "note": "素材タブへ"
+  },
+  {
+    "action": "fill",
+    "target": "#bgKeyword",
+    "value": "未来的な暮らしの風景",
+    "note": "背景キーワード入力"
+  },
+  {
+    "action": "fill",
+    "target": "#bgmUrl",
+    "value": "https://example.com/bgm.mp3",
+    "note": "BGM URL（ダミー）"
+  },
+  {
+    "action": "click",
+    "target": ".tab-btn[data-tab=\"tab-video\"]",
+    "note": "動画タブへ"
+  },
+  {
+    "action": "check",
+    "target": "#shortModeCheck",
+    "note": "ショート動画モード ON"
+  },
+  {
+    "action": "click",
+    "target": "#videoGenerateBtn",
+    "note": "動画生成開始"
+  },
+  {
+    "action": "waitForSelector",
+    "target": "#videoOpenBtn:not([disabled])",
+    "state": "visible",
+    "note": "生成完了まで待機（Open ボタン有効化待ち）"
+  },
+  {
+    "action": "click",
+    "target": "#videoUploadBtn",
+    "note": "YouTube アップロード開始（サンプル）"
+  },
+  {
+    "action": "waitForSelector",
+    "target": "#videoLog",
+    "state": "visible",
+    "note": "アップロードログ表示を待機"
+  }
+]

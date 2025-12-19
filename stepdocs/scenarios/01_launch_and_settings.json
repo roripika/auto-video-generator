@@ -1,0 +1,65 @@
+[
+  {
+    "action": "goto",
+    "target": "http://localhost:3000",
+    "note": "(ダミー) アプリのRendererがブラウザで見えるURLに置き換えてください"
+  },
+  {
+    "action": "click",
+    "target": "#settingsBtn",
+    "note": "設定ボタンを開く"
+  },
+  {
+    "action": "fill",
+    "target": "#settingsProvider",
+    "value": "openai",
+    "note": "AIプロバイダ（ダミー値）"
+  },
+  {
+    "action": "fill",
+    "target": "#settingsApiKey",
+    "value": "sk-xxxxxxxx",
+    "note": "API Key（ダミー値）"
+  },
+  {
+    "action": "fill",
+    "target": "#settingsBaseUrl",
+    "value": "https://api.openai.com/v1",
+    "note": "Base URL（ダミー値）"
+  },
+  {
+    "action": "fill",
+    "target": "#settingsModel",
+    "value": "gpt-4o-mini",
+    "note": "モデル ID（ダミー値）"
+  },
+  {
+    "action": "fill",
+    "target": "#settingsPexelsKey",
+    "value": "PEXELS_API_KEY",
+    "note": "Pexelsキー（ダミー値）"
+  },
+  {
+    "action": "fill",
+    "target": "#settingsPixabayKey",
+    "value": "PIXABAY_API_KEY",
+    "note": "Pixabayキー（ダミー値）"
+  },
+  {
+    "action": "fill",
+    "target": "#settingsYoutubeClientSecrets",
+    "value": "/path/to/client_secret.json",
+    "note": "YouTube client_secret パス（ダミー）"
+  },
+  {
+    "action": "fill",
+    "target": "#settingsYoutubeCredentials",
+    "value": "/path/to/youtube_credentials.pickle",
+    "note": "YouTube credentials パス（ダミー）"
+  },
+  {
+    "action": "click",
+    "target": "#settingsSaveBtn",
+    "note": "設定を保存"
+  }
+]
