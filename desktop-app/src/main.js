@@ -466,6 +466,20 @@ function registerHandlers() {
       });
     });
   });
+  ipcMain.handle('youtube:delete-creds', async () => {
+    const settings = currentSettings || DEFAULT_AI_SETTINGS;
+    const credPath = settings.youtubeCredentialsPath || DEFAULT_YT_CREDENTIALS_PATH;
+    if (!credPath) return { ok: true, removed: false };
+    try {
+      if (fs.existsSync(credPath)) {
+        fs.unlinkSync(credPath);
+        return { ok: true, removed: true, path: credPath };
+      }
+      return { ok: true, removed: false, path: credPath };
+    } catch (err) {
+      throw new Error(`トークン削除に失敗しました: ${err.message || err}`);
+    }
+  });
   ipcMain.handle('trends:fetch', async (event, payload) => {
     const geo = (payload?.geo || 'JP').toUpperCase();
     const limit = Math.max(1, Math.min(Number(payload?.limit) || 10, 50));

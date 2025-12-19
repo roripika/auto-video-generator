@@ -39,6 +39,10 @@ contextBridge.exposeInMainWorld('api', {
   },
   fetchLlmTrends: (payload) => ipcRenderer.invoke('trends:fetch-llm', payload),
   openExternalLink: (url) => ipcRenderer.invoke('external:open', url),
+  youtubeAuth: {
+    runAuthTest: () => ipcRenderer.invoke('youtube:auth-test'),
+    deleteCredentials: () => ipcRenderer.invoke('youtube:delete-creds'),
+  },
 });
 
 contextBridge.exposeInMainWorld('yaml', {

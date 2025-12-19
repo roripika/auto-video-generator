@@ -21,6 +21,7 @@
   const providerHintEl = document.getElementById('providerHint');
   const settingsSaveBtn = document.getElementById('settingsSaveBtn');
   const externalLinks = document.querySelectorAll('[data-external-link="true"]');
+  const settingsYoutubeDeleteCredsBtn = document.getElementById('settingsYoutubeDeleteCredsBtn');
   let providerConfigs = {};
   let activeProvider = 'openai';
 
@@ -207,10 +208,30 @@
         alert('YouTube OAuth 認証が完了しました。');
       } catch (err) {
         console.error(err);
-        alert(`認証に失敗しました: ${err.message || err}`);
+        alert(`認証に失敗しました: ${err.message || err}\nトークンを削除してから再認証してください。`);
+        try {
+          await window.youtubeAuth.deleteCredentials();
+        } catch (e) {
+          console.error('Failed to delete youtube credentials', e);
+        }
       } finally {
         settingsYoutubeAuthTestBtn.disabled = false;
         settingsYoutubeAuthTestBtn.textContent = 'YouTube 認証テスト';
+      }
+    });
+  }
+  if (settingsYoutubeDeleteCredsBtn) {
+    settingsYoutubeDeleteCredsBtn.addEventListener('click', async () => {
+      try {
+        const res = await window.youtubeAuth.deleteCredentials();
+        if (res?.removed) {
+          alert(`保存トークンを削除しました: ${res.path || ''}`);
+        } else {
+          alert('トークンファイルは見つかりませんでした。');
+        }
+      } catch (err) {
+        console.error(err);
+        alert(`トークン削除に失敗しました: ${err.message || err}`);
       }
     });
   }
