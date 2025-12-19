@@ -10,6 +10,12 @@
     "note": "設定タブを開く"
   },
   {
+    "action": "waitForSelector",
+    "target": "#settingsModal:not(.hidden)",
+    "state": "visible",
+    "note": "設定モーダルが開くのを待機"
+  },
+  {
     "action": "fill",
     "target": "#settingsApiKey",
     "value": "sk-xxxxx",
