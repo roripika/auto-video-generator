@@ -23,7 +23,7 @@
   },
   {
     "action": "fill",
-    "target": "#scriptBrief",
+    "target": "#aiBriefInput",
     "value": "暮らしに役立つ AI 活用事例を 3 つ紹介して。イントロとまとめも入れてください。",
     "note": "ブリーフを入力"
   },
