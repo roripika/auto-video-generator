@@ -1,0 +1,10 @@
+[
+  { "action": "waitForSelector", "target": "#themeSelect", "note": "テーマセレクトが表示されるまで待つ" },
+  { "action": "click", "target": ".tab-btn[data-tab=\"tab-script\"]", "note": "台本タブへ移動" },
+  { "action": "waitForSelector", "target": "#aiBriefInput", "note": "AIブリーフ入力欄が表示されるまで待つ" },
+  { "action": "fill", "target": "#aiBriefInput", "value": "忙しい朝でもできる驚きの時短ライフハックをランキング形式で紹介してください。", "note": "初心者向けのブリーフを入力" },
+  { "action": "fill", "target": "#aiSectionsInput", "value": "5", "note": "セクション数を設定" },
+  { "action": "check", "target": "#aiShortAdjust", "note": "ショート調整を有効にする（任意）" },
+  { "action": "click", "target": "#aiGenerateBtn", "note": "AIで台本生成を実行" },
+  { "action": "waitForSelector", "target": "#sectionList li", "state": "visible", "note": "セクション一覧が表示されるまで待つ" }
+]

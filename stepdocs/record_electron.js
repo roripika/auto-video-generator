@@ -68,7 +68,11 @@ class StepRecorder {
 
 async function runAction(page, step) {
   const { action, target, value, note, state } = step;
+  console.log(`[action] ${action} target=${target || ''} value=${value || ''} state=${state || ''}`);
   switch (action) {
+    case 'snap':
+      // custom no-op action to record a screenshot via recorder.snap in the main loop
+      return note || '';
     case 'goto': // Electronでは基本不要
       return note || '';
     case 'click':
