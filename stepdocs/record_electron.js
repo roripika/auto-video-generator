@@ -106,10 +106,15 @@ async function main() {
     require(path.resolve(__dirname, '../desktop-app/node_modules/electron'));
 
   const appDir = path.resolve(__dirname, '../desktop-app');
+  const env = { ...process.env };
+  // Playwright やシェルで ELECTRON_RUN_AS_NODE が立っていると起動に失敗するので明示的に外す
+  delete env.ELECTRON_RUN_AS_NODE;
+
   const app = await electron.launch({
     executablePath: electronPath,
     args: ['.'],
     cwd: appDir,
+    env,
   });
 
   const page = await app.firstWindow();
