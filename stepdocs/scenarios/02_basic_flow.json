@@ -50,10 +50,10 @@
     "note": "台本タブへ"
   },
   {
-    "action": "fill",
-    "target": "#scriptTheme",
-    "value": "AI の活用で暮らしが変わるトピック",
-    "note": "テーマを入力"
+    "action": "select",
+    "target": "#themeSelect",
+    "value": "",
+    "note": "テーマを選択（任意で既存テーマを選ぶ）"
   },
   {
     "action": "fill",
@@ -84,13 +84,13 @@
   },
   {
     "action": "fill",
-    "target": "#bgKeyword",
+    "target": "#assetKeywordInput",
     "value": "未来的な暮らしの風景",
     "note": "背景キーワード入力"
   },
   {
     "action": "fill",
-    "target": "#bgmUrl",
+    "target": "#bgmFileInput",
     "value": "https://example.com/bgm.mp3",
     "note": "BGM URL（ダミー）"
   },

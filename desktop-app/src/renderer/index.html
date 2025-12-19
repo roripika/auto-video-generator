@@ -96,9 +96,28 @@
         <label>現在の背景
           <input id="bgPathInput" type="text" placeholder="assets/cache/..." readonly />
         </label>
+        <div class="asset-search">
+          <label>キーワード
+            <input id="assetKeywordInput" type="text" placeholder="例: 未来的な街並み" />
+          </label>
+          <label>種類
+            <select id="assetKindSelect">
+              <option value="video">動画</option>
+              <option value="image">画像</option>
+            </select>
+          </label>
+          <label class="inline-checkbox">
+            <input id="assetAllowAICheck" type="checkbox" />
+            <span>AI画像生成も許可</span>
+          </label>
+          <div class="asset-actions" style="gap:8px; display:flex; flex-wrap:wrap;">
+            <button id="assetFetchBtn" class="primary">自動取得</button>
+            <button id="assetOpenWindowBtn" class="ghost">別ウインドウで検索</button>
+          </div>
+          <ul id="assetResultList" class="asset-result-list"></ul>
+        </div>
         <div class="asset-actions" style="gap:8px; display:flex; flex-wrap:wrap;">
           <button id="bgBrowseBtn">ファイルを選択</button>
-          <button id="assetOpenWindowBtn" class="ghost">別ウインドウで検索</button>
         </div>
       </section>
 
@@ -259,6 +278,12 @@
           <p class="modal__hint">
             取得: <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noreferrer" data-external-link="true">Google Cloud Console (YouTube Data API)</a>
           </p>
+          <label>YouTube OAuth client_secrets.json パス
+            <input id="settingsYoutubeClientSecrets" type="text" placeholder="./client_secret_xxx.json" />
+          </label>
+          <label>YouTube OAuth credentials 保存先
+            <input id="settingsYoutubeCredentials" type="text" placeholder="~/.config/auto-video-generator/youtube_credentials.pickle" />
+          </label>
           <label>BGM ディレクトリ
             <input id="settingsBgmDir" type="text" placeholder="assets/bgm" />
           </label>
