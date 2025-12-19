@@ -15,7 +15,7 @@ unset ELECTRON_RUN_AS_NODE
 
 cd "$SCRIPT_DIR"
 
-SCENARIO_PATH="${1:-$SCRIPT_DIR/stepdocs/scenarios/02_basic_flow.json}"
+SCENARIO_PATH="${1:-$SCRIPT_DIR/scenarios/02_basic_flow.json}"
 
 if [[ ! -f "$SCENARIO_PATH" ]]; then
   echo "[ERROR] Scenario not found: $SCENARIO_PATH"
