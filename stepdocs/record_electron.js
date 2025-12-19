@@ -103,12 +103,13 @@ async function main() {
 
   const electronPath =
     process.env.ELECTRON_PATH ||
-    path.resolve(__dirname, '../desktop-app/node_modules/.bin/electron');
+    require(path.resolve(__dirname, '../desktop-app/node_modules/electron'));
 
-  const appEntry = path.resolve(__dirname, '../desktop-app/src/main.js');
-
+  const appDir = path.resolve(__dirname, '../desktop-app');
   const app = await electron.launch({
-    args: [appEntry],
+    executablePath: electronPath,
+    args: ['.'],
+    cwd: appDir,
   });
 
   const page = await app.firstWindow();
