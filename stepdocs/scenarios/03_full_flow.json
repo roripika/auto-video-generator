@@ -1,0 +1,18 @@
+[
+  { "action": "waitForSelector", "target": "#themeSelect", "note": "テーマセレクトが表示されるまで待つ" },
+  { "action": "click", "target": ".tab-btn[data-tab=\"tab-script\"]", "note": "台本タブへ移動" },
+  { "action": "waitForSelector", "target": "#aiBriefInput", "note": "AIブリーフ入力欄が表示されるまで待つ" },
+  { "action": "fill", "target": "#aiBriefInput", "value": "忙しい朝でもできる驚きの時短ライフハックをランキング形式で紹介してください。", "note": "ブリーフ入力" },
+  { "action": "fill", "target": "#aiSectionsInput", "value": "5", "note": "セクション数を設定" },
+  { "action": "check", "target": "#aiShortAdjust", "note": "ショート調整を有効にする（任意）" },
+  { "action": "click", "target": "#aiGenerateBtn", "note": "AIで台本生成を実行（外部LLM呼び出しあり）" },
+  { "action": "waitForSelector", "target": "#sectionList li", "state": "visible", "note": "セクション一覧が表示されるまで待つ（生成完了確認）", "timeout": 120000 },
+  { "action": "click", "target": ".tab-btn[data-tab=\"tab-assets\"]", "note": "素材タブへ移動" },
+  { "action": "waitForSelector", "target": "#audioGenerateBtn", "note": "音声生成ボタンが表示されるまで待つ" },
+  { "action": "click", "target": "#audioGenerateBtn", "note": "VOICEVOX で音声生成（ローカルVOICEVOX Engine が必要）" },
+  { "action": "waitForSelector", "target": "#timelineSummary", "state": "visible", "note": "タイムライン更新を待つ（音声生成完了の目安）", "timeout": 120000 },
+  { "action": "click", "target": ".tab-btn[data-tab=\"tab-video\"]", "note": "動画タブへ移動" },
+  { "action": "waitForSelector", "target": "#videoGenerateBtn", "note": "動画生成ボタンが表示されるまで待つ" },
+  { "action": "click", "target": "#videoGenerateBtn", "note": "動画生成を実行（長時間処理の可能性あり）" },
+  { "action": "waitForSelector", "target": "#videoOpenBtn:not([disabled])", "state": "visible", "note": "生成完了: 生成動画を開くボタンが有効になるまで待つ", "timeout": 600000 }
+]

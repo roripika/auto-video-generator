@@ -1,0 +1,17 @@
+[
+  { "action": "click", "target": ".tab-btn[data-tab=\"tab-assets\"]", "note": "素材タブへ移動" },
+  { "action": "waitForSelector", "target": "#assetKeywordInput", "state": "visible", "note": "キーワード入力の表示を待機" },
+  { "action": "fill", "target": "#assetKeywordInput", "value": "未来的な街並み", "note": "背景素材キーワードを入力" },
+  { "action": "select", "target": "#assetKindSelect", "value": "video", "note": "動画素材で検索" },
+  { "action": "click", "target": "#assetFetchBtn", "note": "自動取得を実行" },
+  { "action": "snap", "note": "検索リクエスト直後の状態をキャプチャ" },
+  { "action": "waitForSelector", "target": "#assetResultList li", "state": "visible", "note": "検索結果が表示されるまで待つ", "timeout": 120000 },
+  { "action": "snap", "note": "検索結果リストのスクリーンショット（結果が空ならスキップされる場合あり）" },
+
+  { "action": "fill", "target": "#bgPathInput", "value": "assets/cache/sample_bg.mp4", "note": "背景パスを手動入力（適宜置き換え）" },
+
+  { "action": "fill", "target": "#bgmFileInput", "value": "https://example.com/bgm.mp3", "note": "BGM URL を入力（ダミー）" },
+  { "action": "fill", "target": "#bgmVolumeInput", "value": "-10", "note": "音量 (dB) を設定" },
+  { "action": "fill", "target": "#bgmDuckingInput", "value": "-16", "note": "ducking (dB) を設定" },
+  { "action": "snap", "note": "BGM設定のスクリーンショット" }
+]

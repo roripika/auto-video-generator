@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <title>プレビュー</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        background: #1b1b23;
+      }
+      .preview-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 16px;
+        background: #1e1e26;
+        border-bottom: 1px solid #2a2a33;
+      }
+      .preview-title {
+        font-weight: 600;
+        font-size: 14px;
+        color: #f3f3f3;
+      }
+      .preview-actions {
+        display: flex;
+        gap: 8px;
+      }
+      .preview-content {
+        flex: 1;
+        display: flex;
+        overflow: hidden;
+      }
+      .preview-left {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 16px;
+        overflow: auto;
+      }
+      .preview-right {
+        width: 600px;
+        display: flex;
+        flex-direction: column;
+        padding: 16px;
+        border-left: 1px solid #2a2a33;
+        overflow: auto;
+      }
+      #summaryPanel {
+        padding: 12px;
+        background: #252530;
+        border-radius: 6px;
+        margin-bottom: 16px;
+        font-size: 0.9rem;
+        line-height: 1.6;
+      }
+      .section-preview {
+        margin-bottom: 24px;
+      }
+      .section-preview__label {
+        font-size: 0.9rem;
+        color: #b8b8b8;
+        margin-bottom: 8px;
+      }
+      .section-preview__canvas {
+        position: relative;
+        width: 540px;
+        height: 960px;
+        background: #000;
+        border: 1px solid #444;
+        border-radius: 4px;
+        overflow: hidden;
+        transform: scale(0.5);
+        transform-origin: top left;
+      }
+      .section-preview__bg {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-size: cover;
+        background-position: center;
+      }
+      .section-preview__texts {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+      .section-preview__text {
+        position: absolute;
+        text-align: center;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        font-weight: 700;
+        color: #fff;
+        text-shadow: 
+          -2px -2px 0 #000,
+          2px -2px 0 #000,
+          -2px 2px 0 #000,
+          2px 2px 0 #000;
+      }
+      #yamlPreview {
+        flex: 1;
+        font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+        font-size: 13px;
+        line-height: 1.6;
+        padding: 16px;
+        background: #1e1e26;
+        color: #e6e6e6;
+        border: 1px solid #2a2a33;
+        border-radius: 6px;
+        resize: none;
+        overflow: auto;
+        min-height: 400px;
+      }
+      #yamlPreview:focus {
+        outline: 2px solid #4a9eff;
+        outline-offset: -1px;
+      }
+      #yamlPreview[readonly] {
+        background: #252530;
+        color: #b8b8b8;
+      }
+      .yaml-section {
+        margin-bottom: 16px;
+      }
+      .yaml-section h3 {
+        font-size: 14px;
+        color: #f3f3f3;
+        margin: 0 0 8px 0;
+      }
+      .yaml-actions {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="preview-header">
+      <div class="preview-title">プレビュー</div>
+      <div class="preview-actions">
+        <button id="yamlEditBtn">編集</button>
+        <button id="yamlApplyBtn" class="primary" disabled>適用</button>
+        <button id="yamlCopyBtn" class="ghost">YAMLコピー</button>
+      </div>
+    </div>
+    <div class="preview-content">
+      <div class="preview-left">
+        <div id="summaryPanel" class="summary"></div>
+        <div class="section-preview">
+          <div class="section-preview__label">セクションプレビュー (50% 縮尺・配置のみ)</div>
+          <div id="sectionPreview" class="section-preview__canvas">
+            <div id="sectionPreviewBg" class="section-preview__bg"></div>
+            <div id="sectionPreviewTexts" class="section-preview__texts"></div>
+          </div>
+        </div>
+      </div>
+      <div class="preview-right">
+        <div class="yaml-section">
+          <h3>YAML</h3>
+          <div class="yaml-actions">
+            <button id="yamlRefreshBtn" class="ghost">更新</button>
+          </div>
+          <textarea id="yamlPreview" readonly></textarea>
+        </div>
+      </div>
+    </div>
+    <script src="preview.js"></script>
+  </body>
+</html>

@@ -122,6 +122,27 @@ async function main() {
   });
 
   const page = await app.firstWindow();
+  // attach network and console logging to detect external API calls and runtime logs
+  const networkLog = path.join(OUT_DIR, 'replay_network.log');
+  try { fs.writeFileSync(networkLog, ''); } catch (e) {}
+  page.on('request', (req) => {
+    try {
+      const line = `${new Date().toISOString()} REQUEST ${req.method()} ${req.url()}\n`;
+      fs.appendFileSync(networkLog, line);
+    } catch (e) {}
+  });
+  page.on('response', (res) => {
+    try {
+      const line = `${new Date().toISOString()} RESPONSE ${res.status()} ${res.url()}\n`;
+      fs.appendFileSync(networkLog, line);
+    } catch (e) {}
+  });
+  page.on('console', (msg) => {
+    try {
+      const line = `${new Date().toISOString()} CONSOLE ${msg.type()} ${msg.text()}\n`;
+      fs.appendFileSync(networkLog, line);
+    } catch (e) {}
+  });
   console.log('[electron] title:', await page.title());
   console.log('[electron] url:', page.url());
 

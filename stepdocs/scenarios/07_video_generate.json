@@ -1,0 +1,15 @@
+[
+  { "action": "click", "target": ".tab-btn[data-tab=\"tab-video\"]", "note": "動画タブへ" },
+  { "action": "waitForSelector", "target": "#videoGenerateBtn", "state": "visible", "note": "動画生成ボタンの表示を待つ" },
+  { "action": "check", "target": "#shortModeCheck", "note": "ショート動画モード ON" },
+  { "action": "click", "target": "#videoGenerateBtn", "note": "動画生成を開始" },
+  { "action": "snap", "note": "生成開始直後の状態をキャプチャ" },
+  { "action": "waitForSelector", "target": "#videoOpenBtn:not([disabled])", "state": "visible", "note": "生成完了（開くボタン有効化）まで待つ", "timeout": 300000 },
+  { "action": "snap", "note": "ショートモードで生成完了の画面をキャプチャ" },
+
+  { "action": "uncheck", "target": "#shortModeCheck", "note": "ショート動画モード OFF" },
+  { "action": "click", "target": "#videoGenerateBtn", "note": "通常モードで再生成" },
+  { "action": "snap", "note": "通常モード生成開始直後の状態" },
+  { "action": "waitForSelector", "target": "#videoOpenBtn:not([disabled])", "state": "visible", "note": "通常モードの生成完了を待つ", "timeout": 300000 },
+  { "action": "snap", "note": "通常モード生成後の画面キャプチャ" }
+]

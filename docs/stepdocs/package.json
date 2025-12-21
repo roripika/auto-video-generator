@@ -1,0 +1,12 @@
+{
+  "name": "auto-video-step-replay",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "replay": "node replay_steps.js",
+    "build-guide": "node scripts/build_stepdocs.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.57.0"
+  }
+}

@@ -1,0 +1,8 @@
+[
+  { "action": "click", "target": ".tab-btn[data-tab=\"tab-video\"]", "note": "動画タブへ" },
+  { "action": "click", "target": "#historyRefreshBtn", "note": "過去動画リストを更新" },
+  { "action": "snap", "note": "履歴リスト更新直後の状態" },
+  { "action": "waitForSelector", "target": "#historyList li", "state": "visible", "note": "履歴項目の表示を待つ (空の場合はタイムアウト可)", "timeout": 30000 },
+  { "action": "click", "target": "#historyList li", "note": "最初の履歴を選択（開く/情報を表示）" },
+  { "action": "snap", "note": "履歴表示のスクリーンショット" }
+]

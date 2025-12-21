@@ -12,7 +12,8 @@ from pathlib import Path
 
 from src.models import BGMAudio, ScriptModel, Section, TextStyle, ThemeTemplate
 
-from .llm import LLMError, OpenAIChatClient
+from .llm import LLMError, OpenAIChatClient, generate_and_validate
+from .schemas import script_payload_schema
 from .skeletons import build_script_skeleton
 
 
@@ -46,8 +47,10 @@ class ScriptFromBriefGenerator:
 
         skeleton = build_script_skeleton(self.theme, self.section_count)
         messages = self._build_messages(brief.strip())
+        # Use a minimal schema to encourage strict JSON output from the model.
+        schema = script_payload_schema()
         try:
-            raw_response = self.llm.generate_json(messages)
+            raw_response = generate_and_validate(self.llm, messages, schema=schema, retries=2)
         except LLMError as err:
             raise ScriptGenerationError(str(err)) from err
         payload = self._parse_payload(raw_response)

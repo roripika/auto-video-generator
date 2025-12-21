@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 from pathlib import Path
 from typing import List
 
@@ -8,6 +9,7 @@ from src.models import ScriptModel, TextPosition, TextStyle
 from src.timeline import TimelineSummary
 
 _TEXT_LAYOUTS_CACHE = None
+_FONT_CACHE = {}
 
 
 def _load_text_layouts() -> dict:
@@ -36,6 +38,60 @@ def _get_layout(layout_id: str | None) -> dict:
     if layout_id and layout_id in layouts:
         return layouts[layout_id]
     return layouts.get("hero_center", {})
+
+
+def _resolve_font_path(font_name: str) -> str:
+    """Resolve font name to actual font file path for FFmpeg."""
+    if font_name in _FONT_CACHE:
+        return _FONT_CACHE[font_name]
+    
+    # If already a path, return as-is
+    font_path = Path(font_name)
+    if font_path.exists() and font_path.suffix.lower() in {".ttf", ".ttc", ".otf"}:
+        _FONT_CACHE[font_name] = font_name
+        return font_name
+    
+    # Try fc-match on Linux/macOS
+    try:
+        result = subprocess.run(
+            ["fc-match", "-f", "%{file}", font_name],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            resolved_path = result.stdout.strip()
+            # If fc-match returned a non-Japanese font for Japanese font name, use fallback
+            if Path(resolved_path).exists():
+                # Check if the font looks like it's not appropriate (e.g., Verdana for "Noto Sans JP")
+                if "Noto Sans" in font_name or "Hiragino" in font_name or "ヒラギノ" in font_name:
+                    # If fc-match gave us Verdana/Arial for Japanese font, skip to fallback
+                    if "Verdana" not in resolved_path and "Arial" not in resolved_path:
+                        _FONT_CACHE[font_name] = resolved_path
+                        return resolved_path
+                else:
+                    _FONT_CACHE[font_name] = resolved_path
+                    return resolved_path
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    
+    # Fallback to common Japanese fonts on macOS
+    macos_fallbacks = [
+        f"/System/Library/Fonts/ヒラギノ角ゴシック W4.ttc",
+        f"/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc",
+        f"/System/Library/Fonts/Hiragino Sans GB.ttc",
+        f"/Library/Fonts/Arial Unicode.ttf",
+    ]
+    
+    for fallback in macos_fallbacks:
+        if Path(fallback).exists():
+            _FONT_CACHE[font_name] = fallback
+            return fallback
+    
+    # Last resort: return as-is and let FFmpeg fail with a clear error
+    _FONT_CACHE[font_name] = font_name
+    return font_name
+
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp"}
 
@@ -149,7 +205,7 @@ def _build_drawtext_filters(style: TextStyle, timeline: TimelineSummary, script:
                 end = max(section.start_sec + section.duration_sec, start + 0.1)
                 filters.append(
                     "drawtext="
-                    f"fontfile='{seg_style.font}':"
+                    f"fontfile='{_resolve_font_path(seg_style.font)}':"
                     f"text='{text}':"
                     f"fontsize={seg_style.fontsize}:"
                     f"fontcolor={seg_style.fill}:"
@@ -166,7 +222,7 @@ def _build_drawtext_filters(style: TextStyle, timeline: TimelineSummary, script:
             end = max(section.start_sec + section.duration_sec, start + 0.1)
             filters.append(
                 "drawtext="
-                f"fontfile='{style.font}':"
+                f"fontfile='{_resolve_font_path(style.font)}':"
                 f"text='{text}':"
                 f"fontsize={style.fontsize}:"
                 f"fontcolor={style.fill}:"
@@ -287,7 +343,7 @@ def _build_section_videos(
                     y_expr = f"{_format_position(base_pos, 'y')}+{line_offset + off_y}"
                     drawtext = (
                         "drawtext="
-                        f"fontfile='{seg_style.font}':"
+                        f"fontfile='{_resolve_font_path(seg_style.font)}':"
                         f"text='{line}':"
                         f"fontsize={seg_style.fontsize}:"
                         f"fontcolor={seg_style.fill}:"
@@ -310,7 +366,7 @@ def _build_section_videos(
                 x_expr = "w-text_w-60"
             drawtext = (
                 "drawtext="
-                f"fontfile='{style.font}':"
+                f"fontfile='{_resolve_font_path(style.font)}':"
                 f"text='{_escape_text(section_tl.on_screen_text)}':"
                 f"fontsize={style.fontsize}:"
                 f"fontcolor={style.fill}:"
@@ -384,7 +440,7 @@ def _add_credits_overlay(
     label = "[vcred]"
     filter_chain = (
         f"{base_label}drawtext="
-        f"fontfile='{script.text_style.font}':"
+        f"fontfile='{_resolve_font_path(script.text_style.font)}':"
         f"text='{text}':"
         f"fontsize={font_size}:"
         f"fontcolor=white:"
@@ -491,7 +547,7 @@ def build_ffmpeg_command(
         wm_text = watermark_cfg.text or (script.bgm.license if script.bgm and script.bgm.license else None)
         if wm_text:
             text = _escape_text(wm_text)
-            font_path = watermark_cfg.font or script.text_style.font
+            font_path = _resolve_font_path(watermark_cfg.font or script.text_style.font)
             font_size = watermark_cfg.fontsize
             font_color = watermark_cfg.fill
             stroke_color = watermark_cfg.stroke_color or script.text_style.stroke.color

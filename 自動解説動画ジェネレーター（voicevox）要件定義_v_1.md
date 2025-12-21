@@ -1,7 +1,8 @@
 # 自動解説動画ジェネレーター（VOICEVOX）要件定義_v1
 
-最終更新: 2025-11-12 (JST)
+最終更新: 2025-12-20 (JST)
 作成目的: Codex(エージェント)が実装を進めやすいように、要件・仕様・入出力・設計方針を明確化する。
+備考: 実装済み機能・アーキテクチャは [docs/design.md](docs/design.md)、[docs/llm_prompting.md](docs/llm_prompting.md)、[docs/media_pipeline_spec.md](docs/media_pipeline_spec.md) を参照。
 
 ---
 ## 0. ゴール/非ゴール
@@ -220,6 +221,50 @@ sections:
   - { id: s3, on_screen_text: "勝ち筋は?", narration: "製造×DXの交差領域がチャンスです。" }
 output: { filename: "short_demo.mp4", srt: true }
 ```
+
+---
+## 付録B: スクリプト生成ワークフロー (実装済み)
+
+### B.1. ブリーフから台本への自動生成
+- CLI: `python scripts/generate_script_from_brief.py --brief "..." --theme lifehack --sections 5`
+- 実装: `src/script_generation/generator.py::ScriptFromBriefGenerator.generate()`
+- LLM ラッパー: `src/script_generation/llm.py::generate_and_validate()` で厳密JSON出力を強制。
+- スキーマ: `src/script_generation/schemas.py::script_payload_schema()`
+- 結果: `ScriptModel` インスタンスを YAML/JSON で出力。
+
+### B.2. 厳密 JSON 出力ポリシー
+- プロンプトテンプレート: `src/script_generation/prompt_templates.py::build_json_only_messages()`
+- 救済/検証: `src/script_generation/response_validator.py::sanitize_and_validate()`
+- ログ: `src/script_generation/logging_utils.py` で最小ログ化・生レスポンス保存。
+- リトライ: 指数バックオフ（デフォルト1秒×回数）、最大3回まで自動再試行。
+
+---
+## 付録C: アセット自動補完 (実装済み)
+
+### C.1. 背景素材の自動取得
+- 関数: `scripts/generate_video.py::ensure_background_assets()`
+- 処理: 背景未指定またはファイル非存在の場合、Pexels/Pixabay API で自動検索・ダウンロード。
+- キーワードサニタイズ: 正規表現で ASCII/日本語のみを抽出し、50文字以下に制限（Pixabay 400エラー回避）。
+- キャッシュ: `assets/cache/` 配下に保存、ライセンス情報を JSON に記録。
+
+### C.2. BGM 自動補完
+- 関数: `scripts/generate_video.py::ensure_bgm_track()`
+- 処理: BGM 未指定の場合、ローカルキャッシュ `assets/bgm/` から候補を検索。見つからない場合はデフォルト・フォルバック。
+- ボリュームダッキング: ナレーション時は BGM を自動減衰（デフォルト -6〜-10dB）。
+
+---
+## 付録D: Stepdocs UI ガイド自動生成 (実装済み)
+
+### D.1. Electron 操作の自動記録
+- エンジン: `stepdocs/record_electron.js` で Playwright を使用して UI 操作を自動化。
+- JSON シナリオ: `stepdocs/scenarios/` に複数の操作フロー定義（01_script_editor.json ～ 09_history_reuse.json）。
+- スクリーンショット + ステップ: 各操作ごとにスクリーンショットとアクション履歴を JSON で記録。
+
+### D.2. Markdown ガイドの自動生成
+- ビルドスクリプト: `stepdocs/build_stepdocs.js` で `docs/stepdocs/steps.json` と画像から Markdown を生成。
+- 出力先: `docs/stepdocs/基本操作ガイド_自動生成.md`
+- 重複排除: `tools/stepdocs/dedupe_screenshots.py` でハッシュベースの重複削除と参照更新。
+- 更新ポリシー: シナリオ追加時に `record_electron.js` を再実行し、ガイドを定期再生成。
 
 ---
 ## 付録B: 品質チェックリスト(運用)

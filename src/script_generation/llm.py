@@ -5,6 +5,17 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Protocol
 
 import requests
+import json
+from datetime import datetime
+import time
+import os
+from .logging_utils import safe_append_log, save_llm_raw_error
+from .prompt_templates import build_json_only_messages, example_script_schema
+from .response_validator import extract_json_text, sanitize_and_validate
+
+# Log file for outgoing LLM requests (avoid logging secrets)
+LLM_LOG_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'logs', 'llm_requests.log')
+os.makedirs(os.path.dirname(LLM_LOG_PATH), exist_ok=True)
 
 
 class LLMError(RuntimeError):
@@ -18,6 +29,21 @@ class LLMClient(Protocol):
 def _ensure_messages(messages: List[Dict[str, str]]) -> None:
     if not messages:
         raise LLMError("No messages were provided for the LLM request.")
+
+
+def prepare_strict_json_messages(messages: List[Dict[str, str]], schema: Optional[Dict] = None, instructions: str = "") -> List[Dict[str, str]]:
+    """If a schema is provided, prepend a strict JSON-only system/user message set.
+
+    This helps enforce consistent JSON-only outputs from the model. If `schema` is None,
+    the original messages are returned unchanged.
+    """
+    if not schema:
+        return messages
+    template_msgs = build_json_only_messages(schema, instructions=instructions)
+    # Keep any existing system message after the strict system message so callers can still
+    # set contextual info. User messages follow the template user message.
+    remaining = [m for m in messages if m.get("role") != "system"]
+    return template_msgs + remaining
 
 
 def _resolve_default_gemini_max_output_tokens() -> int:
@@ -244,25 +270,84 @@ def _post_and_extract(
     path: tuple,
     *,
     timeout: int,
+    retries: int = 2,
 ) -> str:
-    try:
-        response = session.post(url, json=payload, headers=headers, timeout=timeout)
-        response.raise_for_status()
-    except requests.HTTPError as err:
-        detail = err.response.text if err.response is not None else str(err)
-        raise LLMError(f"LLM request failed: {detail}") from err
-    except requests.RequestException as err:
-        raise LLMError(f"LLM request could not be sent: {err}") from err
+    # Minimal logging: record attempt and result (do not write API keys)
+    safe_append_log(LLM_LOG_PATH, f"REQUEST {url} payload_keys={list(payload.keys())}")
 
-    data: Any = response.json()
-    try:
-        for key in path:
-            data = data[key]
-        if not isinstance(data, str):
-            raise TypeError("LLM response is not text.")
-        return data
-    except (KeyError, IndexError, TypeError) as err:
-        raise LLMError(f"Unexpected LLM response payload: {response.text}") from err
+    attempt = 0
+    last_exception = None
+    raw = None
+    while attempt <= retries:
+        attempt += 1
+        try:
+            response = session.post(url, json=payload, headers=headers, timeout=timeout)
+            response.raise_for_status()
+            safe_append_log(LLM_LOG_PATH, f"RESPONSE {response.status_code} {url}")
+        except requests.HTTPError as err:
+            detail = err.response.text if err.response is not None else str(err)
+            safe_append_log(LLM_LOG_PATH, f"HTTP_ERROR {err} {url}")
+            raise LLMError(f"LLM request failed: {detail}") from err
+        except requests.RequestException as err:
+            safe_append_log(LLM_LOG_PATH, f"REQUEST_EXCEPTION {err} {url}")
+            raise LLMError(f"LLM request could not be sent: {err}") from err
+
+        raw = response.text
+        # Try JSON first, then YAML (if available). If neither parses, optionally retry.
+        parsed = None
+        try:
+            parsed = response.json()
+        except ValueError:
+            try:
+                import yaml as _yaml
+
+                parsed = _yaml.safe_load(raw)
+            except Exception:
+                parsed = None
+
+        # If still not parsed, attempt to extract a JSON substring heuristically.
+        if parsed is None:
+            try:
+                candidate = extract_json_text(raw if raw is not None else "")
+                if candidate:
+                    try:
+                        parsed = json.loads(candidate)
+                    except Exception:
+                        parsed = None
+            except Exception:
+                parsed = None
+
+        if parsed is None:
+            safe_append_log(LLM_LOG_PATH, f"PARSE_ATTEMPT_FAILED attempt={attempt} {url}")
+            if attempt <= retries:
+                time.sleep(1 * attempt)
+                continue
+            # final failure: save raw and raise
+            err_file = save_llm_raw_error(raw, prefix="invalid_llm_response")
+            safe_append_log(LLM_LOG_PATH, f"PARSE_ERROR saved={err_file} {url}")
+            raise LLMError("LLM response could not be parsed as JSON or YAML; raw response saved.")
+
+        # extraction
+        try:
+            part = parsed
+            for key in path:
+                part = part[key]
+            if not isinstance(part, str):
+                try:
+                    part = json.dumps(part, ensure_ascii=False)
+                except Exception:
+                    part = str(part)
+            return part
+        except (KeyError, IndexError, TypeError) as err:
+            last_exception = err
+            safe_append_log(LLM_LOG_PATH, f"EXTRACT_ATTEMPT_FAILED attempt={attempt} {url}")
+            if attempt <= retries:
+                time.sleep(1 * attempt)
+                continue
+            # final failure: save raw and raise
+            err_file = save_llm_raw_error(raw, prefix="invalid_llm_response")
+            safe_append_log(LLM_LOG_PATH, f"EXTRACT_ERROR saved={err_file} {url}")
+            raise LLMError(f"Unexpected LLM response payload: raw saved to {err_file}") from last_exception
 
 
 def build_llm_client(
@@ -306,3 +391,60 @@ def build_llm_client(
     raise LLMError(
         f"Unsupported provider '{provider}'. Supported providers: openai, anthropic, gemini."
     )
+
+
+def generate_and_validate(
+    client: LLMClient,
+    messages: List[Dict[str, str]],
+    *,
+    schema: Optional[Dict] = None,
+    instructions: str = "",
+    retries: int = 2,
+    backoff_seconds: int = 1,
+) -> str:
+    """Send messages through `client` while enforcing a strict JSON output (when `schema` provided).
+
+    This helper will:
+    - prepend a strict JSON-only template when `schema` is provided,
+    - call `client.generate_json` and validate/sanitize the returned text,
+    - retry on validation failures, and
+    - save the raw response to `logs/llm_errors` on final failure.
+
+    Returns a JSON string (compact) on success.
+    """
+    msgs = prepare_strict_json_messages(messages, schema=schema, instructions=instructions)
+
+    attempt = 0
+    last_exc: Optional[Exception] = None
+    raw: Optional[str] = None
+    while attempt <= retries:
+        attempt += 1
+        try:
+            raw = client.generate_json(msgs)
+        except Exception as e:
+            last_exc = e
+            safe_append_log(LLM_LOG_PATH, f"GENERATE_EXCEPTION attempt={attempt} {e}")
+            if attempt <= retries:
+                time.sleep(backoff_seconds * attempt)
+                continue
+            raise LLMError(f"LLM generate_json failed: {e}") from e
+
+        # Validate / sanitize the returned text
+        ok, parsed, err = sanitize_and_validate(raw if raw is not None else "", schema=schema)
+        if ok and parsed is not None:
+            try:
+                return json.dumps(parsed, ensure_ascii=False)
+            except Exception:
+                return raw if raw is not None else ""
+
+        safe_append_log(LLM_LOG_PATH, f"VALIDATION_FAILED attempt={attempt} err={err}")
+
+        if attempt <= retries:
+            time.sleep(backoff_seconds * attempt)
+            continue
+
+        # Final failure path: save raw response for inspection
+        err_file = save_llm_raw_error(raw, prefix="invalid_llm_response")
+        safe_append_log(LLM_LOG_PATH, f"FINAL_VALIDATION_FAILED saved={err_file}")
+
+        raise LLMError(f"LLM response failed validation; raw saved to {err_file}") from last_exc

@@ -36,6 +36,58 @@
 
       <section class="panel panel--ai">
         <h2>AI 台本生成 <button class="info-btn" data-info="brief">i</button></h2>
+        
+        <fieldset style="border: 1px solid #ddd; border-radius: 4px; padding: 12px; margin-bottom: 16px;">
+          <legend style="padding: 0 8px; font-weight: 600;">AIアイディア生成</legend>
+          
+          <!-- AIが生成 -->
+          <div style="margin-bottom: 16px;">
+            <div style="font-weight: 500; margin-bottom: 8px; color: #555;">・AIが生成</div>
+            <div style="padding-left: 16px;">
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom:8px;">
+                <label>
+                  トレンドカテゴリ
+                  <select id="trendCategorySelect">
+                    <option value="">指定なし（全般）</option>
+                    <option value="ライフハック">ライフハック</option>
+                    <option value="時事ネタ">時事ネタ</option>
+                    <option value="統計話題">統計話題</option>
+                    <option value="科学トリビア">科学トリビア</option>
+                    <option value="健康常識（断定NG）">健康常識</option>
+                    <option value="歴史の豆知識">歴史の豆知識</option>
+                    <option value="宇宙・天文">宇宙・天文</option>
+                    <option value="心理学・行動科学">心理学・行動科学</option>
+                    <option value="テクノロジー動向">テクノロジー動向</option>
+                    <option value="カルチャー・エンタメ">カルチャー・エンタメ</option>
+                  </select>
+                </label>
+                <label>
+                  追加キーワード
+                  <input id="trendExtraKeywordInput" type="text" placeholder="例: 自動車" />
+                </label>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <label style="margin: 0; min-width: 200px;">AIトレンドからアイディア生成:</label>
+                <button id="trendBriefBtnLlm" class="ghost">文言生成</button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Youtubeから選択 -->
+          <div>
+            <div style="font-weight: 500; margin-bottom: 8px; color: #555;">・Youtubeから選択</div>
+            <div style="padding-left: 16px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <label style="margin: 0; min-width: 200px;">Youtubeランキングからアイディア生成:</label>
+                <button id="trendBriefBtnYoutube" class="ghost">文言生成</button>
+              </div>
+            </div>
+          </div>
+        </fieldset>
+
+        <label style="display: block; margin-bottom: 4px; font-weight: 500;">
+          アイディアフレーズ
+        </label>
         <textarea
           id="aiBriefInput"
           placeholder="例: 忙しい朝でもできる驚きの時短ライフハックをランキング形式で紹介したい…"
@@ -49,10 +101,6 @@
             <input id="aiShortAdjust" type="checkbox" />
             <span>ショート調整（1分以内目標）</span>
           </label>
-          <div class="trend-brief-buttons">
-            <button id="trendBriefBtnYoutube" class="ghost">YouTubeランキングから文言生成</button>
-            <button id="trendBriefBtnLlm" class="ghost">AIトレンドから文言生成</button>
-          </div>
           <button id="aiGenerateBtn" class="primary">AI で生成</button>
         </div>
         <p class="ai-hint">テーマは上部セレクトで選択したものが利用されます。</p>
@@ -66,26 +114,8 @@
         </section>
 
         <section class="panel panel--form">
-          <h2>セクション編集</h2>
+          <h2>セクション編集 <button id="openPreviewBtn" class="ghost" style="margin-left: 12px;">プレビューを開く</button></h2>
           <div id="sectionForm" class="form-grid"></div>
-          <div class="section-preview">
-            <div class="section-preview__label">プレビュー (50% 縮尺・配置のみ)</div>
-            <div id="sectionPreview" class="section-preview__canvas">
-              <div id="sectionPreviewBg" class="section-preview__bg"></div>
-              <div id="sectionPreviewTexts" class="section-preview__texts"></div>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel panel--preview">
-          <h2>プレビュー</h2>
-          <div id="summaryPanel" class="summary"></div>
-          <h3>YAML</h3>
-          <div class="yaml-actions">
-            <button id="yamlEditBtn">編集</button>
-            <button id="yamlApplyBtn" class="primary" disabled>適用</button>
-          </div>
-          <textarea id="yamlPreview" readonly></textarea>
         </section>
       </main>
     </div>

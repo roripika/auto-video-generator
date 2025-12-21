@@ -93,6 +93,13 @@ def build_task_command(task: dict, ai_settings: dict) -> List[str]:
         "--theme-id",
         "freeform_prompt",
     ]
+    # LLM カテゴリ/追加キーワードが設定されていれば引き渡す
+    category = task.get("category")
+    if isinstance(category, str) and category.strip():
+        args += ["--llm-category", category]
+    extra_kw = task.get("extra_keyword")
+    if isinstance(extra_kw, str) and extra_kw.strip():
+        args += ["--extra-keyword", extra_kw]
     if task.get("clear_cache", True):
         args.append("--clear-cache")
     if task.get("auto_upload", True):

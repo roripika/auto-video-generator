@@ -5,3 +5,4 @@ requests>=2.31.0
 urllib3<2
 pytest>=7.4
 yt-dlp>=2024.8
+jsonschema>=4.0

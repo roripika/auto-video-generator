@@ -204,13 +204,13 @@
       settingsYoutubeAuthTestBtn.disabled = true;
       settingsYoutubeAuthTestBtn.textContent = '認証中...';
       try {
-        await window.youtubeAuth.runAuthTest();
+        await window.api.youtubeAuth.runAuthTest();
         alert('YouTube OAuth 認証が完了しました。');
       } catch (err) {
         console.error(err);
         alert(`認証に失敗しました: ${err.message || err}\nトークンを削除してから再認証してください。`);
         try {
-          await window.youtubeAuth.deleteCredentials();
+          await window.api.youtubeAuth.deleteCredentials();
         } catch (e) {
           console.error('Failed to delete youtube credentials', e);
         }
@@ -223,7 +223,7 @@
   if (settingsYoutubeDeleteCredsBtn) {
     settingsYoutubeDeleteCredsBtn.addEventListener('click', async () => {
       try {
-        const res = await window.youtubeAuth.deleteCredentials();
+        const res = await window.api.youtubeAuth.deleteCredentials();
         if (res?.removed) {
           alert(`保存トークンを削除しました: ${res.path || ''}`);
         } else {

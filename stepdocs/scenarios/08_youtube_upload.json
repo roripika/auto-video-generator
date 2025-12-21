@@ -1,0 +1,8 @@
+[
+  { "action": "click", "target": ".tab-btn[data-tab=\"tab-video\"]", "note": "動画タブへ" },
+  { "action": "waitForSelector", "target": "#videoUploadBtn", "state": "visible", "note": "アップロードボタン表示を待つ" },
+  { "action": "click", "target": "#videoUploadBtn", "note": "YouTube アップロード開始（ダミー/安全な環境で実施）" },
+  { "action": "snap", "note": "アップロード開始直後の状態" },
+  { "action": "waitForSelector", "target": "#videoLog", "state": "visible", "note": "ログ出力が表示されるまで待機", "timeout": 30000 },
+  { "action": "snap", "note": "アップロード操作後のログ画面をキャプチャ" }
+]

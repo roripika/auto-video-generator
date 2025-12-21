@@ -1,0 +1,10 @@
+[
+  { "action": "click", "target": ".tab-btn[data-tab=\"tab-script\"]", "note": "台本タブへ（音声セクションはここに含まれる）" },
+  { "action": "waitForSelector", "target": "#audioGenerateBtn", "state": "visible", "note": "音声生成ボタンが表示されるまで待つ" },
+  { "action": "click", "target": "#audioGenerateBtn", "note": "VOICEVOX で音声生成（ローカルエンジン必要）" },
+  { "action": "waitForSelector", "target": "#timelineSummary", "state": "visible", "note": "タイムラインサマリが更新されるまで待機", "timeout": 240000 },
+  { "action": "snap", "note": "音声生成完了を確認するためのスナップ" },
+  { "action": "click", "target": "#timelineRefreshBtn", "note": "タイムラインを更新" },
+  { "action": "waitForSelector", "target": "#timelineSummary", "state": "visible", "note": "更新後のサマリ表示を確認", "timeout": 120000 },
+  { "action": "snap", "note": "音声生成とタイムラインの状態をキャプチャ" }
+]

@@ -38,6 +38,24 @@
 - **拡張性**: 音声エンジンや画像生成エンジンの差し替えができる構造。
 - **ユーザーUX**: CLI + Web UI（スクリプト編集画面）で操作可能。
 
+## 4.1. LLM & Script Generation Requirements
+- **厳密JSON出力**: AI台本生成時は `generate_and_validate()` ラッパーで JSON のみを強制。YAML フォールバックと文字列抽出による救済処理を実装。
+- **スキーマ検証**: `src/script_generation/schemas.py` で簡易スキーマ定義（`script_payload_schema`, `trend_ideas_schema`）を保持し、各 LLM 呼び出しで適用。
+- **リトライ・バックオフ**: LLM 呼び出し失敗時は指数バックオフ（デフォルト 1秒×回数）で最大3回まで自動再試行。
+- **最小ログ化・キー非出力**: `logs/llm_requests.log` には request/response のメタ情報（endpoint、status、timestamp）のみ。API キーや全ペイロードは記録しない。
+- **生レスポンス保存**: パース失敗時は `logs/llm_errors/invalid_llm_response_<timestamp>.txt` に生レスポンスを保存。運用調査用のみ。
+- **プロバイダ選択**: OpenAI/Anthropic/Gemini 対応。環境変数 (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`) または `settings/ai_settings.json` から設定取得（平文出力はしない）。
+
+## 4.2. Logging & Security
+- **キー管理**: 全 API キーを環境変数か `.env` ファイル（`.gitignore` 対象）に配置。リポジトリには絶対に平文を含めない。
+- **ログ監査**: ログファイル `logs/llm_requests.log` と `logs/llm_errors/` を定期確認し、異常パターンを検出。
+- **機微データ処理**: 生成物に著作権/個人情報が含まれる可能性がある場合は、自動出力をそのまま公開せず人によるレビュー必須とする。
+
+## 4.3. Asset Pipeline & Stepdocs
+- **自動素材取得**: `ensure_background_assets()` で Pexels/Pixabay API を呼び出し、不足素材を補完。キーワードをサニタイズし 429/400 エラー回避。
+- **キャッシュ管理**: ダウンロード済み素材を `assets/cache/<keyword>/` に保存し、ライセンス情報を JSON に記録。
+- **UI ガイド自動生成**: Electron デスクトップアプリの操作を Stepdocs（`stepdocs/`）で自動記録し、スクリーンショット + ステップを Markdown ガイドに変換。定期的に再生成して最新状態を保証。
+
 ## 5. Open Questions
 1. 自動テーマ選定のアルゴリズム（トレンド API を利用するか）。
 2. AI スクリプト生成時の安全対策・検閲ポリシー。

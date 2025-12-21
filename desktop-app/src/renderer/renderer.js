@@ -2,10 +2,7 @@
   const themeSelect = document.getElementById('themeSelect');
   const sectionListEl = document.getElementById('sectionList');
   const sectionFormEl = document.getElementById('sectionForm');
-  const yamlPreviewEl = document.getElementById('yamlPreview');
-  const yamlEditBtn = document.getElementById('yamlEditBtn');
-  const yamlApplyBtn = document.getElementById('yamlApplyBtn');
-  const summaryPanelEl = document.getElementById('summaryPanel');
+  const openPreviewBtn = document.getElementById('openPreviewBtn');
   const aiBriefInput = document.getElementById('aiBriefInput');
   const aiSectionsInput = document.getElementById('aiSectionsInput');
   const aiGenerateBtn = document.getElementById('aiGenerateBtn');
@@ -58,9 +55,6 @@
   const statusBadge = document.createElement('span');
   statusBadge.className = 'status';
   document.querySelector('.app-header').appendChild(statusBadge);
-  const sectionPreviewEl = document.getElementById('sectionPreview');
-  const sectionPreviewBgEl = document.getElementById('sectionPreviewBg');
-  const sectionPreviewTextsEl = document.getElementById('sectionPreviewTexts');
 
   const settingsBtn = document.getElementById('settingsBtn');
   let modalProviderConfigs = {};
@@ -272,13 +266,28 @@
   };
 
   async function handleLlmTrendBriefGenerate() {
-    if (!aiBriefInput) return;
+    console.log('[DEBUG] handleLlmTrendBriefGenerate called');
+    if (!aiBriefInput) {
+      console.error('[DEBUG] aiBriefInput element not found');
+      return;
+    }
     setStatus('AIトレンド候補を取得中...');
     try {
-      const payload = await window.api.fetchLlmTrends({ limit: 12 });
+      const categoryEl = document.getElementById('trendCategorySelect');
+      const extraKwEl = document.getElementById('trendExtraKeywordInput');
+      const category = categoryEl?.value?.trim() || '';
+      const extraKeyword = extraKwEl?.value?.trim() || '';
+      console.log('[DEBUG] Calling window.api.fetchLlmTrends with category:', category, 'extraKeyword:', extraKeyword);
+      const payload = await window.api.fetchLlmTrends({ limit: 12, category, extraKeyword });
+      console.log('[DEBUG] Received payload:', payload);
+      
       const keywords = (payload?.keywords || []).filter((kw) => typeof kw === 'string' && kw.trim());
       const briefs = Array.isArray(payload?.briefs) ? payload.briefs : [];
       const firstBrief = briefs.find((item) => item?.brief) || briefs[0] || null;
+      
+      console.log('[DEBUG] Parsed keywords:', keywords);
+      console.log('[DEBUG] Parsed briefs:', briefs);
+      
       if (!keywords.length && !firstBrief) {
         setStatus('AIトレンド候補を取得できませんでした。');
         return;
@@ -298,10 +307,12 @@
         seedPhrases.slice(0, 8).forEach((frag) => lines.push(`- ${frag}`));
       }
       lines.push('この中から最も伸びそうな切り口を選び、ランキング/解説構成で台本を組み立ててください。');
+      
+      console.log('[DEBUG] Setting aiBriefInput.value with', lines.length, 'lines');
       aiBriefInput.value = lines.join('\n');
       setStatus('AIトレンド候補をブリーフ欄に反映しました。');
     } catch (err) {
-      console.error(err);
+      console.error('[DEBUG] Error in handleLlmTrendBriefGenerate:', err);
       setStatus(`AIトレンド候補の取得に失敗しました: ${err.message || err}`);
     }
   }
@@ -751,39 +762,7 @@
     updateVideoButtons();
   }
 
-  function enterYamlEditMode() {
-    state.yamlEditMode = true;
-    yamlPreviewEl.readOnly = false;
-    if (yamlApplyBtn) yamlApplyBtn.disabled = false;
-    if (yamlEditBtn) yamlEditBtn.disabled = true;
-    yamlPreviewEl.focus();
-  }
-
-  function exitYamlEditMode() {
-    state.yamlEditMode = false;
-    yamlPreviewEl.readOnly = true;
-    if (yamlApplyBtn) yamlApplyBtn.disabled = true;
-    if (yamlEditBtn) yamlEditBtn.disabled = false;
-  }
-
-  function handleYamlApply() {
-    try {
-      const parsed = window.yaml.parse(yamlPreviewEl.value || '');
-      if (parsed && parsed.__error) {
-        setStatus(`YAML解析に失敗しました: ${parsed.__error}`);
-        return;
-      }
-      state.script = parsed;
-      state.filePath = state.filePath || null;
-      state.selectedIndex = 0;
-      exitYamlEditMode();
-      setStatus('YAMLを適用しました。');
-      render();
-    } catch (err) {
-      console.error(err);
-      setStatus(`YAMLの適用に失敗しました: ${err.message || err}`);
-    }
-  }
+  // YAML edit functions removed - now handled in preview window
 
   function renderSectionList() {
     sectionListEl.innerHTML = '';
@@ -800,6 +779,7 @@
         renderSectionForm();
         renderSectionList();
         renderSectionPreview();
+        notifyPreviewWindow();
       });
       sectionListEl.appendChild(li);
     });
@@ -1222,120 +1202,20 @@
   }
 
   function renderSectionPreview() {
-    if (!sectionPreviewEl || !sectionPreviewTextsEl || !sectionPreviewBgEl) return;
-    sectionPreviewTextsEl.innerHTML = '';
-
-    if (!state.script || !state.script.sections.length) {
-      sectionPreviewBgEl.style.backgroundImage = 'linear-gradient(135deg, #1c1c24, #0f0f14)';
-      return;
-    }
-
-    const section = state.script.sections[state.selectedIndex] || state.script.sections[0];
-    const layout = TEXT_LAYOUTS[section.text_layout] || TEXT_LAYOUTS.hero_center;
-    const basePos = layout.base_position || { x: 'center', y: 'center-120' };
-    const rankOffset = layout.rank_offset || { x: 0, y: 0 };
-    const bodyOffset = layout.body_offset || { x: 0, y: 0 };
-    const lineGap = layout.line_gap ?? 24;
-    const align = layout.align || 'center';
-    const rect = sectionPreviewEl.getBoundingClientRect();
-    const scale = rect.width ? rect.width / PREVIEW_BASE_W : 0.5;
-
-    const bgPath = section.bg || state.script.video?.bg || '';
-    if (bgPath) {
-      sectionPreviewBgEl.style.backgroundImage = `url('${previewBackgroundUrl(bgPath)}')`;
-      sectionPreviewBgEl.style.opacity = 0.85;
-    } else {
-      sectionPreviewBgEl.style.backgroundImage = 'linear-gradient(135deg, #1c1c24, #0f0f14)';
-      sectionPreviewBgEl.style.opacity = 1;
-    }
-
-    const baseStyleVal = baseTextStyle();
-    const lines = [];
-
-    if (Array.isArray(section.on_screen_segments) && section.on_screen_segments.length) {
-      section.on_screen_segments.forEach((seg, segIdx) => {
-        const tier = segIdx === 0 ? 'emphasis' : 'body';
-        const merged = applyTierPreviewStyle(mergeSegmentStylePreview(baseStyleVal, seg.style), tier);
-        const offset = segIdx === 0 ? rankOffset : bodyOffset;
-        normalizeLinebreaks(seg.text || '')
-          .split('\n')
-          .filter((l) => l.trim())
-          .forEach((textLine) => {
-            lines.push({ text: textLine, style: merged, offset, tier });
-          });
-      });
-    } else {
-      const merged = applyTierPreviewStyle(baseStyleVal, 'body');
-      normalizeLinebreaks(section.on_screen_text || '')
-        .split('\n')
-        .filter((l) => l.trim())
-        .forEach((textLine, idx) => {
-          const tier = idx === 0 ? 'emphasis' : 'body';
-          const offset = idx === 0 ? rankOffset : bodyOffset;
-          lines.push({ text: textLine, style: applyTierPreviewStyle(merged, tier), offset, tier });
-        });
-    }
-
-    let yCursor = 0;
-    const baseX = resolvePositionValue(basePos.x, 'x');
-    const baseY = resolvePositionValue(basePos.y, 'y');
-
-    lines.forEach((line, idx) => {
-      const fontSize = line.style.fontsize || 64;
-      const textWidth = approximateTextWidth(line.text, fontSize);
-      const offX = Number(line.offset?.x || 0);
-      const offY = Number(line.offset?.y || 0);
-      let xPos = baseX + offX;
-      if (align === 'left') {
-        xPos = 60 + offX;
-      } else if (align === 'right') {
-        xPos = PREVIEW_BASE_W - textWidth - 60 - offX;
-      } else {
-        xPos = baseX + offX - textWidth / 2;
-      }
-      const yPos = baseY + offY + yCursor;
-
-      const el = document.createElement('div');
-      el.className = `section-preview__textline section-preview__textline--${line.tier || 'body'}`;
-      el.textContent = line.text;
-      el.style.left = `${xPos * scale}px`;
-      el.style.top = `${yPos * scale}px`;
-      el.style.fontSize = `${fontSize * scale}px`;
-      el.style.color = line.style.fill || '#FFFFFF';
-      el.style.webkitTextStroke = `${(line.style.strokeWidth || 0) * scale}px ${line.style.strokeColor || '#000000'}`;
-      sectionPreviewTextsEl.appendChild(el);
-
-      yCursor += fontSize + lineGap;
-    });
+    // Section preview moved to preview window
+    // This function is now a no-op but kept for compatibility
+    // Still notify the preview window of changes
+    notifyPreviewWindow();
   }
 
   function renderSummary() {
-    if (!state.script) {
-      summaryPanelEl.textContent = 'スクリプト未読込。';
-      return;
-    }
-    const sectionCount = state.script.sections.length;
-    const estimatedDuration = estimateDurationFromText(state.script);
-    const shortMode = state.script.video?.short_mode || 'off';
-    summaryPanelEl.innerHTML = `
-      <div><strong>タイトル:</strong> ${state.script.title}</div>
-      <div><strong>ファイル:</strong> ${state.filePath || '未保存'}</div>
-      <div><strong>セクション数:</strong> ${sectionCount}</div>
-      <div><strong>推定尺(文字ベース):</strong> 約 ${estimatedDuration.toFixed(1)} 秒</div>
-      <div><strong>ショートモード:</strong> ${shortMode}</div>
-      <div><strong>CTA:</strong> ${state.script.sections[0]?.cta || ''}</div>
-    `;
+    // Summary moved to preview window
+    // This function is now a no-op but kept for compatibility
   }
 
   function renderYaml() {
-    if (!state.script) {
-      yamlPreviewEl.value = '';
-      return;
-    }
-    yamlPreviewEl.value = window.yaml.stringify(state.script);
-    yamlPreviewEl.readOnly = !state.yamlEditMode;
-    if (yamlApplyBtn) yamlApplyBtn.disabled = !state.yamlEditMode;
-    if (yamlEditBtn) yamlEditBtn.disabled = state.yamlEditMode;
+    // YAML rendering moved to preview window
+    // This function is now a no-op but kept for compatibility
   }
 
   function addSection() {
@@ -1443,6 +1323,16 @@
     setTimeout(() => {
       statusBadge.textContent = '';
     }, 4000);
+  }
+
+  function notifyPreviewWindow() {
+    // Send updated script to preview window if it's open
+    if (window.api && window.api.sendPreviewData && state.script) {
+      window.api.sendPreviewData({ 
+        script: state.script,
+        selectedIndex: state.selectedIndex || 0
+      });
+    }
   }
 
   function ensureTextStyle() {
@@ -2123,8 +2013,51 @@
       }
     });
   }
-  if (yamlEditBtn) yamlEditBtn.addEventListener('click', enterYamlEditMode);
-  if (yamlApplyBtn) yamlApplyBtn.addEventListener('click', handleYamlApply);
+  
+  if (openPreviewBtn) {
+    openPreviewBtn.addEventListener('click', async () => {
+      try {
+        await window.api.openPreviewWindow();
+        // Send current script to preview window after a short delay
+        setTimeout(() => {
+          if (state.script) {
+            window.api.sendPreviewData({ 
+              script: state.script,
+              selectedIndex: state.selectedIndex || 0
+            });
+          }
+        }, 500);
+      } catch (err) {
+        console.error('Failed to open preview window:', err);
+        setStatus('プレビューウィンドウの起動に失敗しました。');
+      }
+    });
+  }
+
+  // Listen for preview window requests and updates
+  if (window.api.onPreviewRequestFromMain) {
+    window.api.onPreviewRequestFromMain(() => {
+      if (state.script) {
+        window.api.sendPreviewData({ 
+          script: state.script,
+          selectedIndex: state.selectedIndex || 0
+        });
+      }
+    });
+  }
+
+  if (window.api.onPreviewScriptUpdated) {
+    window.api.onPreviewScriptUpdated((script) => {
+      if (script) {
+        state.script = script;
+        renderYaml();
+        renderSectionList();
+        renderSectionForm();
+        setStatus('プレビューウィンドウから台本を更新しました');
+      }
+    });
+  }
+
   if (infoButtons && infoButtons.length) {
     infoButtons.forEach((btn) => {
       btn.addEventListener('click', () => {

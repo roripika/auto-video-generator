@@ -1,0 +1,19 @@
+[
+  { "action": "waitForSelector", "target": "#aiBriefInput", "note": "AIブリーフ入力欄が表示されるまで待つ" },
+  { "action": "fill", "target": "#aiBriefInput", "value": "忙しい朝でもできる驚きの時短ライフハックをランキング形式で紹介してください。セクションごとに要点と実践例を含めてください。", "note": "ブリーフ入力（基本）" },
+  { "action": "fill", "target": "#aiSectionsInput", "value": "5", "note": "セクション数を設定（詳細版）" },
+  { "action": "uncheck", "target": "#aiShortAdjust", "note": "ショート調整を無効にする（詳細版）" },
+  { "action": "waitForSelector", "target": "#aiGenerateBtn:not([disabled])", "note": "生成ボタンが有効になるまで待つ", "timeout": 300000 },
+  { "action": "click", "target": "#aiGenerateBtn", "note": "台本生成を実行（外部LLM呼び出し）" },
+  { "action": "waitForSelector", "target": "#sectionList li", "state": "visible", "note": "セクション一覧が表示されるまで待つ（生成完了）", "timeout": 120000 },
+  { "action": "snap", "note": "（スナップ）詳細版生成後のスクリーンショット" },
+
+  { "action": "check", "target": "#aiShortAdjust", "note": "ショート調整を有効にする（ショート版を生成）" },
+  { "action": "fill", "target": "#aiSectionsInput", "value": "3", "note": "セクション数を短めに設定（ショート）" },
+  { "action": "waitForSelector", "target": "#aiGenerateBtn:not([disabled])", "note": "ショート生成ボタンが有効になるまで待つ", "timeout": 300000 },
+  { "action": "click", "target": "#aiGenerateBtn", "note": "ショート向け台本生成を実行" },
+  { "action": "waitForSelector", "target": "#sectionList li", "state": "visible", "note": "ショート版の生成完了を待つ", "timeout": 120000 },
+  { "action": "snap", "note": "（スナップ）ショート版生成後のスクリーンショット" },
+
+  { "action": "click", "target": ".tab-btn[data-tab=\"tab-script\"]", "note": "台本タブにフォーカス" }
+]

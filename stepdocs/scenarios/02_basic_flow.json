@@ -22,6 +22,12 @@
     "note": "テーマセレクトが表示されるまで待つ（選択はスキップ）"
   },
   {
+    "action": "waitForSelector",
+    "target": "#aiBriefInput",
+    "state": "visible",
+    "note": "ブリーフ入力欄が表示されるまで待つ"
+  },
+  {
     "action": "fill",
     "target": "#aiBriefInput",
     "value": "暮らしに役立つ AI 活用事例を 3 つ紹介して。イントロとまとめも入れてください。",

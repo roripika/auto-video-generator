@@ -16,7 +16,8 @@ LLM_ERROR_LOG_DIR = PROJECT_ROOT / "logs" / "llm_errors"
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.script_generation import build_llm_client, LLMError  # noqa: E402
+from src.script_generation import build_llm_client, LLMError, generate_and_validate  # noqa: E402
+from src.script_generation.schemas import trend_ideas_schema  # noqa: E402
 
 
 def load_saved_settings() -> dict:
@@ -54,6 +55,7 @@ def build_client(args: argparse.Namespace) -> Any:
         base_url=base_url,
         temperature=args.temperature,
         max_tokens=args.max_tokens,
+        timeout=120,
     )
 
 
@@ -79,7 +81,9 @@ def build_messages(
 
     system_prompt = """あなたは YouTube 雑学・解説動画チャンネル向けの企画編集者AIです。
 直近〜今後1ヶ月に日本で伸びそうな雑学/豆知識/ライフハックネタを考え、JSONだけを返してください。
-炎上や誹謗中傷、危険行為、医療断定などセンシティブすぎる話題は避けてください。"""
+炎上や誹謗中傷、危険行為、医療断定などセンシティブすぎる話題は避けてください。
+
+重要: 出力は単一のJSONオブジェクトのみ。バックティックやコードフェンス（``` や ```` など）、日本語の説明文、前置き/後置きテキストは一切含めないでください。"""
     schema_hint = """
 出力フォーマット（JSONのみ、コメントや説明は不要）:
 {
@@ -121,7 +125,9 @@ def build_messages(
 language="{language}"、region="JP" を前提に、priority_score が高い順になるようにしてください。
 {category_hint}
 {extra_hint}
-各トピックには 12〜18 文字程度の短いタイトル、1〜2文の brief、そして 6〜10 個の短い断言フレーズ (seed_phrases) を含めてください。"""
+各トピックには 12〜18 文字程度の短いタイトル、1〜2文の brief、そして 6〜10 個の短い断言フレーズ (seed_phrases) を含めてください。
+
+厳守事項: 出力はJSONのみ。コードフェンスやバックティック、コメント、説明文、Markdownは一切含めないでください。"""
     return [
         {"role": "system", "content": system_prompt.strip()},
         {"role": "user", "content": schema_hint.strip()},
@@ -129,19 +135,42 @@ language="{language}"、region="JP" を前提に、priority_score が高い順�
     ]
 
 
-CODE_FENCE_RE = re.compile(r"^```[\w-]*\s*", re.IGNORECASE)
-
-
 def _strip_code_fences(text: str) -> str:
-    """Gemini などが ```json ... ``` 形式で返してきた場合に備えて除去する。"""
+    """
+    Gemini などが ```json ... ``` or ````plaintext ... ```` 形式で返してきた場合に備えて除去する。
+    複数のレイヤーのフェンスにも対応。
+    """
     if not isinstance(text, str):
         return text
     stripped = text.strip()
-    if stripped.startswith("```"):
-        stripped = CODE_FENCE_RE.sub("", stripped, count=1)
-        if stripped.endswith("```"):
-            stripped = stripped[:-3]
-    return stripped.strip()
+    
+    # 外側のコードフェンスを複数回除去（ネストに対応、最大10回）
+    max_iterations = 10
+    for _ in range(max_iterations):
+        before = stripped
+        
+        # 先頭のコードフェンスを削除
+        # Pattern: ``` or ```` + optional language (json, plaintext, etc.) + newline
+        if stripped.startswith("`"):
+            # Find the first newline after the opening fence
+            fence_match = re.match(r'^`+(?:[a-z]+)?\s*\n', stripped, re.IGNORECASE)
+            if fence_match:
+                stripped = stripped[fence_match.end():]
+        
+        # 末尾のコードフェンスを削除
+        # Pattern: newline + ``` or ````
+        if stripped.endswith("`"):
+            fence_match = re.search(r'\n`+\s*$', stripped)
+            if fence_match:
+                stripped = stripped[:fence_match.start()]
+        
+        stripped = stripped.strip()
+        
+        # 変化がなければ終了
+        if stripped == before:
+            break
+    
+    return stripped
 
 
 def parse_and_validate(json_text: str, max_ideas: int) -> Dict[str, Any]:
@@ -249,15 +278,19 @@ def main() -> None:
         )
         output_path = resolve_output_path(args)
         if args.stdout:
+            # stdout mode: output ONLY JSON, no diagnostic messages
             json.dump(data, sys.stdout, ensure_ascii=False)
             sys.stdout.write("\n")
             sys.stdout.flush()
         else:
+            # file mode: save to file with diagnostic messages
             save_output(data, output_path)
             ideas_len = len(data.get("ideas", []))
-            print(f"[OK] Saved {ideas_len} ideas to {output_path}")
+            print(f"[OK] Saved {ideas_len} ideas to {output_path}", file=sys.stderr)
     except (LLMError, ValueError, json.JSONDecodeError) as err:
-        raise SystemExit(f"[ERROR] {err}") from err
+        # --stdout モードでもエラーを stderr に出力し、exit code 1 で終了
+        print(f"[ERROR] {err}", file=sys.stderr)
+        sys.exit(1)
 
 
 def fetch_trend_ideas_via_llm(
@@ -272,7 +305,7 @@ def fetch_trend_ideas_via_llm(
     base_url: str | None = None,
     temperature: float = 0.4,
     max_tokens: int = 6000,
-    retries: int = 2,
+    retries: int = 1,  # Reduced from 2 to 1 to avoid timeout
     _fallback: bool = False,
 ) -> Dict[str, Any]:
     """Programmatic API to fetch trend ideas as dict."""
@@ -290,16 +323,31 @@ def fetch_trend_ideas_via_llm(
     messages = build_messages(language, max_ideas, category, extra_keyword)
     attempts = max(1, retries)
     last_err: Exception | None = None
-    last_err: Exception | None = None
+    # Use generate_and_validate to enforce JSON-first responses and retry/salvage when possible.
+    schema = trend_ideas_schema()
     for attempt in range(1, attempts + 1):
-        response_text = client.generate_json(messages)
         try:
+            strict_instructions = (
+                "出力は単一のJSONオブジェクトのみとし、Markdown・バックティック・コードフェンスを一切含めないでください。"
+                "必ず '{' で始まり '}' で終わるJSONのみを返し、前置きや後置きのテキストは入れないでください。"
+            )
+            response_text = generate_and_validate(
+                client,
+                messages,
+                schema=schema,
+                instructions=strict_instructions,
+                retries=0,  # Reduced from 2 to 0 to avoid timeout (outer loop already retries)
+            )
+            # 追加の安全弁: コードフェンス除去
+            response_text = _strip_code_fences(response_text)
             return parse_and_validate(response_text, max_ideas)
-        except (ValueError, json.JSONDecodeError) as err:
-            log_path = log_invalid_response(response_text, err)
+        except Exception as err:
+            # generate_and_validate already saves raw responses on final failure; log and possibly retry
+            log_path = log_invalid_response(getattr(err, 'args', [''])[0] if err else '', err)
             print(
-                f"[WARN] LLM response parsing failed (attempt {attempt}/{attempts}). "
-                f"Raw response saved to {log_path}. Error: {err}"
+                f"[WARN] LLM response parsing/validation failed (attempt {attempt}/{attempts}). "
+                f"Raw response saved to {log_path}. Error: {err}",
+                file=sys.stderr,
             )
             last_err = err
             if attempt < attempts:
@@ -311,7 +359,8 @@ def fetch_trend_ideas_via_llm(
         if not _fallback and reduced < max_ideas:
             print(
                 f"[WARN] LLM JSON parsing failed repeatedly; retrying with max_ideas={reduced} "
-                "(レスポンスを短くして取得します)"
+                "(レスポンスを短くして取得します)",
+                file=sys.stderr,
             )
             return fetch_trend_ideas_via_llm(
                 max_ideas=reduced,

@@ -43,6 +43,14 @@ contextBridge.exposeInMainWorld('api', {
     runAuthTest: () => ipcRenderer.invoke('youtube:auth-test'),
     deleteCredentials: () => ipcRenderer.invoke('youtube:delete-creds'),
   },
+  // Preview window
+  openPreviewWindow: () => ipcRenderer.invoke('preview:open'),
+  onPreviewUpdate: (callback) => ipcRenderer.on('preview:update', (_event, data) => callback(data)),
+  onPreviewRequestFromMain: (callback) => ipcRenderer.on('preview:request-from-main', callback),
+  onPreviewScriptUpdated: (callback) => ipcRenderer.on('preview:script-updated', (_event, script) => callback(script)),
+  updateScriptFromPreview: (script) => ipcRenderer.invoke('preview:update-script', script),
+  requestPreviewData: () => ipcRenderer.send('preview:request-data'),
+  sendPreviewData: (data) => ipcRenderer.send('preview:send-data', data),
 });
 
 contextBridge.exposeInMainWorld('yaml', {

@@ -86,6 +86,7 @@ let settingsWindow = null;
 let trendWindow = null;
 let schedulerWindow = null;
 let schedulerStatusWindow = null;
+let previewWindow = null;
 let schedulerTimers = {};
 let schedulerQueue = Promise.resolve();
 let uploadQueue = Promise.resolve();
@@ -246,6 +247,52 @@ function registerHandlers() {
     if (mainWindowRef && !mainWindowRef.isDestroyed()) {
       mainWindowRef.webContents.send('bgm:selected', payload);
     }
+  });
+
+  ipcMain.handle('preview:open', () => {
+    if (previewWindow && !previewWindow.isDestroyed()) {
+      previewWindow.focus();
+      return { ok: true };
+    }
+    previewWindow = new BrowserWindow({
+      width: 1400,
+      height: 900,
+      title: 'プレビュー',
+      parent: mainWindowRef || undefined,
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.js'),
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    });
+    previewWindow.on('closed', () => {
+      previewWindow = null;
+    });
+    previewWindow.loadFile(path.join(__dirname, 'renderer', 'preview.html'));
+    return { ok: true };
+  });
+
+  ipcMain.on('preview:request-data', (_event) => {
+    // Preview window requesting current script data
+    if (mainWindowRef && !mainWindowRef.isDestroyed()) {
+      mainWindowRef.webContents.send('preview:request-from-main');
+    }
+  });
+
+  ipcMain.on('preview:send-data', (_event, data) => {
+    // Main window sending script data to preview
+    if (previewWindow && !previewWindow.isDestroyed()) {
+      previewWindow.webContents.send('preview:update', data);
+    }
+  });
+
+  ipcMain.handle('preview:update-script', async (_event, script) => {
+    // Preview window sending updated script back to main
+    if (mainWindowRef && !mainWindowRef.isDestroyed()) {
+      mainWindowRef.webContents.send('preview:script-updated', script);
+      return { ok: true };
+    }
+    return { ok: false };
   });
 
   ipcMain.handle('themes:list', () => listThemes());
@@ -513,29 +560,62 @@ function registerHandlers() {
       String(limit),
       '--stdout',
     ];
+    // カテゴリと追加キーワードがあれば引数に追加
+    const category = typeof payload?.category === 'string' && payload.category.trim() ? payload.category.trim() : null;
+    const extraKeyword = typeof payload?.extraKeyword === 'string' && payload.extraKeyword.trim() ? payload.extraKeyword.trim() : null;
+    if (category) {
+      args.push('--llm-category', category);
+    }
+    if (extraKeyword) {
+      args.push('--extra-keyword', extraKeyword);
+    }
+    console.log('[DEBUG] trends:fetch-llm - Spawning Python with args:', args);
     return new Promise((resolve, reject) => {
       const proc = spawn(PYTHON_BIN, args, { cwd: PROJECT_ROOT, env: buildEnv() });
       let stdout = '';
       let stderr = '';
+      let processTimeout;
+      
+      // Set a 120-second timeout (LLM can take time to respond)
+      processTimeout = setTimeout(() => {
+        console.error('[DEBUG] Python process timeout after 120s');
+        proc.kill();
+        reject(new Error('LLM request timed out after 120 seconds'));
+      }, 120000);
+      
       proc.stdout.on('data', (data) => {
         stdout += data.toString();
       });
       proc.stderr.on('data', (data) => {
-        stderr += data.toString();
+        const chunk = data.toString();
+        stderr += chunk;
+        console.log('[DEBUG] Python stderr:', chunk);
       });
-      proc.on('error', (err) => reject(err));
+      proc.on('error', (err) => {
+        console.error('[DEBUG] Process spawn error:', err);
+        reject(err);
+      });
       proc.on('close', (code) => {
+        clearTimeout(processTimeout);
+        console.log('[DEBUG] Process exited with code:', code);
+        console.log('[DEBUG] stdout length:', stdout.length);
+        console.log('[DEBUG] stderr:', stderr);
         if (code !== 0) {
           reject(new Error(stderr || `fetch_trend_ideas_llm failed (exit ${code})`));
           return;
         }
         try {
           const parsed = JSON.parse(stdout || '{}');
-          resolve({
+          console.log('[DEBUG] Parsed JSON:', parsed);
+          const result = {
             keywords: Array.isArray(parsed.keywords) ? parsed.keywords : [],
             briefs: Array.isArray(parsed.briefs) ? parsed.briefs : [],
-          });
+          };
+          console.log('[DEBUG] Returning result:', result);
+          resolve(result);
         } catch (err) {
+          console.error('[DEBUG] JSON parse error:', err);
+          console.error('[DEBUG] stdout was:', stdout.substring(0, 500));
           reject(new Error(`LLM JSON parse error: ${err.message || err}`));
         }
       });
