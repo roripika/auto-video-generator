@@ -57,3 +57,9 @@ contextBridge.exposeInMainWorld('yaml', {
   stringify: (data) => ipcRenderer.sendSync('yaml:stringify', data),
   parse: (text) => ipcRenderer.sendSync('yaml:parse', text),
 });
+
+// Backward compatibility: expose youtubeAuth at top level
+contextBridge.exposeInMainWorld('youtubeAuth', {
+  runAuthTest: () => ipcRenderer.invoke('youtube:auth-test'),
+  deleteCredentials: () => ipcRenderer.invoke('youtube:delete-creds'),
+});
