@@ -1,12 +1,23 @@
 const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+function expandTilde(p) {
+  if (!p) return p;
+  if (p === '~') return os.homedir();
+  if (p.startsWith('~/')) {
+    return path.join(os.homedir(), p.slice(2));
+  }
+  return p;
+}
 
 /**
  * Build arguments for youtube_auth_test.py invocation.
  * Throws if client_secrets is missing.
  */
 function buildAuthTestArgs(settings, defaultCredPath, authTestScript) {
-  const clientPath = settings.youtubeClientSecretsPath;
-  const credPath = settings.youtubeCredentialsPath || defaultCredPath;
+  const clientPath = expandTilde(settings.youtubeClientSecretsPath);
+  const credPath = expandTilde(settings.youtubeCredentialsPath) || defaultCredPath;
   if (!clientPath || !fs.existsSync(clientPath)) {
     throw new Error('client_secrets.json のパスが設定されていません。');
   }
@@ -24,6 +35,7 @@ function buildAuthTestArgs(settings, defaultCredPath, authTestScript) {
  * Delete credential file if present.
  */
 function deleteCredentialsFile(credPath) {
+  credPath = expandTilde(credPath);
   if (!credPath) return { ok: true, removed: false };
   try {
     if (fs.existsSync(credPath)) {
@@ -37,6 +49,7 @@ function deleteCredentialsFile(credPath) {
 }
 
 module.exports = {
+  expandTilde,
   buildAuthTestArgs,
   deleteCredentialsFile,
 };

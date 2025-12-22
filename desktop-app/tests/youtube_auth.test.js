@@ -7,7 +7,15 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-const { buildAuthTestArgs, deleteCredentialsFile } = require('../src/youtube_auth');
+const { buildAuthTestArgs, deleteCredentialsFile, expandTilde } = require('../src/youtube_auth');
+
+test('expandTilde expands home path', () => {
+  const home = os.homedir();
+  const expanded = expandTilde('~/testfile');
+  assert.strictEqual(expanded, path.join(home, 'testfile'));
+  assert.strictEqual(expandTilde(''), '');
+  assert.strictEqual(expandTilde(null), null);
+});
 
 test('buildAuthTestArgs throws when client_secrets is missing', () => {
   const tmpCred = path.join(os.tmpdir(), 'yt_creds_test.pickle');
