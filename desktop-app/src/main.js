@@ -4,6 +4,7 @@ const os = require('os');
 const fs = require('fs');
 const YAML = require('yaml');
 const { spawn } = require('child_process');
+const { buildAuthTestArgs, deleteCredentialsFile } = require('./youtube_auth');
 
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const THEMES_DIR = path.join(PROJECT_ROOT, 'configs', 'themes');
@@ -485,18 +486,7 @@ function registerHandlers() {
   });
   ipcMain.handle('youtube:auth-test', async () => {
     const settings = currentSettings || DEFAULT_AI_SETTINGS;
-    const clientPath = settings.youtubeClientSecretsPath;
-    const credPath = settings.youtubeCredentialsPath || DEFAULT_YT_CREDENTIALS_PATH;
-    if (!clientPath || !fs.existsSync(clientPath)) {
-      throw new Error('client_secrets.json のパスが設定されていません。');
-    }
-    const args = [
-      YOUTUBE_AUTH_TEST_SCRIPT,
-      '--client-secrets',
-      clientPath,
-      '--credentials',
-      credPath,
-    ];
+    const { args, credPath } = buildAuthTestArgs(settings, DEFAULT_YT_CREDENTIALS_PATH, YOUTUBE_AUTH_TEST_SCRIPT);
     return new Promise((resolve, reject) => {
       const proc = spawn(PYTHON_BIN, args, { cwd: PROJECT_ROOT, env: buildEnv() });
       let stderr = '';
@@ -516,16 +506,7 @@ function registerHandlers() {
   ipcMain.handle('youtube:delete-creds', async () => {
     const settings = currentSettings || DEFAULT_AI_SETTINGS;
     const credPath = settings.youtubeCredentialsPath || DEFAULT_YT_CREDENTIALS_PATH;
-    if (!credPath) return { ok: true, removed: false };
-    try {
-      if (fs.existsSync(credPath)) {
-        fs.unlinkSync(credPath);
-        return { ok: true, removed: true, path: credPath };
-      }
-      return { ok: true, removed: false, path: credPath };
-    } catch (err) {
-      throw new Error(`トークン削除に失敗しました: ${err.message || err}`);
-    }
+    return deleteCredentialsFile(credPath);
   });
   ipcMain.handle('trends:fetch', async (event, payload) => {
     const geo = (payload?.geo || 'JP').toUpperCase();
