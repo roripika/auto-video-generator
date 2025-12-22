@@ -164,7 +164,8 @@ def _short_scale(script: ScriptModel) -> float:
         w = getattr(script.video, "width", 0) or 0
         h = getattr(script.video, "height", 0) or 0
         if h > w and h >= 1500:  # assume 1080x1920など縦長
-            return 0.78
+            # より強めに縮小して画面外にはみ出しにくくする
+            return 0.65
     except Exception:
         pass
     return 1.0
