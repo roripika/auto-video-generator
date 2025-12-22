@@ -5,6 +5,7 @@
   const taskStatus = document.getElementById('taskStatus');
   const maxConcurrentInput = document.getElementById('maxConcurrentInput');
   const statusWindowBtn = document.getElementById('statusWindowBtn');
+  const upcomingList = document.getElementById('upcomingList');
 
   let tasks = [];
   let maxConcurrent = 1;
@@ -229,6 +230,38 @@
     });
   }
 
+  function renderUpcoming() {
+    if (!upcomingList) return;
+    upcomingList.innerHTML = '';
+    const candidates = tasks
+      .filter((t) => t.enabled !== false && t.next_run_at)
+      .sort((a, b) => (a.next_run_at || 0) - (b.next_run_at || 0))
+      .slice(0, 20);
+    if (!candidates.length) {
+      const empty = document.createElement('li');
+      empty.className = 'task-item task-item--compact';
+      empty.textContent = '予定されているタスクはありません';
+      upcomingList.appendChild(empty);
+      return;
+    }
+    candidates.forEach((task) => {
+      const li = document.createElement('li');
+      li.className = 'task-item task-item--compact';
+      const title = document.createElement('div');
+      title.className = 'task-title';
+      title.textContent = task.name || '無題タスク';
+      const meta = document.createElement('div');
+      meta.className = 'task-meta task-meta--compact';
+      const nextRunText = new Date(task.next_run_at).toLocaleString('ja-JP');
+      meta.textContent = `次回: ${nextRunText} / 間隔: ${task.interval_minutes || 1440}分 / max-kw: ${
+        task.max_keywords || 10
+      }`;
+      li.appendChild(title);
+      li.appendChild(meta);
+      upcomingList.appendChild(li);
+    });
+  }
+
   async function loadTasks() {
     try {
       const client = getScheduler();
@@ -245,6 +278,7 @@
         maxConcurrentInput.value = maxConcurrent;
       }
       renderTasks();
+      renderUpcoming();
     } catch (err) {
       console.error(err);
       taskStatus.textContent = `読み込みに失敗しました: ${err.message || err}`;
@@ -279,6 +313,7 @@
         enabled: true,
       });
       renderTasks();
+      renderUpcoming();
     });
   }
   if (taskSaveBtn) {

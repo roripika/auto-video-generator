@@ -317,6 +317,11 @@ textarea {
   max-height: 60vh;
   overflow-y: auto;
 }
+.task-list--compact {
+  max-height: 220px;
+  padding: 6px;
+  gap: 8px;
+}
 
 .task-item {
   border: 1px solid #2a2a33;
@@ -326,6 +331,10 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+.task-item--compact {
+  padding: 10px;
+  gap: 6px;
 }
 
 .task-title {
@@ -364,6 +373,30 @@ textarea {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+}
+.task-meta--compact {
+  font-size: 0.8rem;
+  color: #c6c6d3;
+}
+
+.upcoming-panel {
+  margin: 12px 0;
+  border: 1px solid #2a2a33;
+  border-radius: 10px;
+  padding: 10px;
+  background: #1c1c24;
+}
+
+.upcoming-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+
+.upcoming-header h3 {
+  margin: 0;
+  font-size: 1rem;
 }
 
 .ai-controls {
