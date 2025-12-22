@@ -205,7 +205,7 @@
       settingsYoutubeAuthTestBtn.textContent = '認証中...';
       try {
         const yt = window.api?.youtubeAuth || window.youtubeAuth;
-        if (!yt) {
+        if (!yt || typeof yt.runAuthTest !== 'function') {
           alert('YouTube 認証APIが利用できません。アプリを再起動してください。');
           return;
         }
@@ -216,8 +216,10 @@
         alert(`認証に失敗しました: ${err.message || err}\nトークンを削除してから再認証してください。`);
         try {
           const yt = window.api?.youtubeAuth || window.youtubeAuth;
-          if (yt) {
+          if (yt && typeof yt.deleteCredentials === 'function') {
             await yt.deleteCredentials();
+          } else {
+            alert(`トークン削除APIが利用できませんでした。\n手動で ${YT_CREDENTIALS_DEFAULT} を削除してから再度お試しください。`);
           }
         } catch (e) {
           console.error('Failed to delete youtube credentials', e);
@@ -232,8 +234,10 @@
     settingsYoutubeDeleteCredsBtn.addEventListener('click', async () => {
       try {
         const yt = window.api?.youtubeAuth || window.youtubeAuth;
-        if (!yt) {
-          alert('YouTube 認証APIが利用できません。アプリを再起動してください。');
+        if (!yt || typeof yt.deleteCredentials !== 'function') {
+          alert(
+            `YouTube 認証APIが利用できません。アプリを再起動するか、手動で ${YT_CREDENTIALS_DEFAULT} を削除してください。`
+          );
           return;
         }
         const res = await yt.deleteCredentials();
