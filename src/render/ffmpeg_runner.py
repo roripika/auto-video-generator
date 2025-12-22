@@ -96,10 +96,10 @@ def _resolve_font_path(font_name: str) -> str:
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp"}
 
 
-def _format_position(value: TextPosition, axis: str) -> str:
+def _format_position(value: TextPosition, axis: str, scale: float = 1.0) -> str:
     raw = value.x if axis == "x" else value.y
     if isinstance(raw, int):
-        return str(raw)
+        return str(int(round(raw * scale)))
     if not isinstance(raw, str):
         return "0"
 
@@ -123,19 +123,22 @@ def _format_position(value: TextPosition, axis: str) -> str:
     m = re.match(r"^(left|right|top|bottom|center)([+-]\d+)$", token)
     if m:
         anchor, offset = m.groups()
-        offset_val = offset
+        try:
+            offset_val = int(offset)
+        except ValueError:
+            offset_val = 0
+        scaled_offset = int(round(offset_val * scale))
+        sign = "+" if scaled_offset >= 0 else "-"
+        scaled_abs = abs(scaled_offset)
         if anchor == "center":
             base = f"({dim_var}-{text_var})/2"
-            sign = "+" if offset.startswith("+") else "-"
-            return f"{base}{sign}{offset[1:]}"
+            return f"{base}{sign}{scaled_abs}"
         if anchor in {"left", "top"}:
             base = "0"
-            sign = "+" if offset.startswith("+") else "-"
-            return f"{base}{sign}{offset[1:]}"
+            return f"{base}{sign}{scaled_abs}"
         if anchor in {"right", "bottom"}:
             base = f"{dim_var}-{text_var}"
-            sign = "+" if offset.startswith("+") else "-"
-            return f"{base}{sign}{offset[1:]}"
+            return f"{base}{sign}{scaled_abs}"
 
     return raw
 
@@ -153,6 +156,18 @@ def _escape_text(text: str) -> str:
 
 def _db_to_linear(value_db: float) -> float:
     return 10 ** (value_db / 20.0)
+
+
+def _short_scale(script: ScriptModel) -> float:
+    """Return scale factor for text/layout when vertical short mode."""
+    try:
+        w = getattr(script.video, "width", 0) or 0
+        h = getattr(script.video, "height", 0) or 0
+        if h > w and h >= 1500:  # assume 1080x1920など縦長
+            return 0.78
+    except Exception:
+        pass
+    return 1.0
 
 
 def _segment_style(base: TextStyle, segment_style: TextStyle | None) -> TextStyle:
@@ -193,6 +208,7 @@ def _split_lines(text: str) -> List[str]:
 def _build_drawtext_filters(style: TextStyle, timeline: TimelineSummary, script: ScriptModel) -> str:
     filters = []
     section_map = {s.id: s for s in script.sections}
+    scale = _short_scale(script)
     for section in timeline.sections:
         section_model = section_map.get(section.id)
         segments = section_model.on_screen_segments if section_model else []
@@ -200,6 +216,10 @@ def _build_drawtext_filters(style: TextStyle, timeline: TimelineSummary, script:
             line_offset = 0
             for seg in segments:
                 seg_style = _segment_style(style, seg.style)
+                if scale != 1.0:
+                    seg_style.fontsize = int(round((seg_style.fontsize or 0) * scale))
+                    if seg_style.stroke and seg_style.stroke.width is not None:
+                        seg_style.stroke.width = max(1, int(round(seg_style.stroke.width * scale)))
                 text = _escape_text(seg.text)
                 start = max(section.start_sec, 0.0)
                 end = max(section.start_sec + section.duration_sec, start + 0.1)
@@ -211,11 +231,11 @@ def _build_drawtext_filters(style: TextStyle, timeline: TimelineSummary, script:
                     f"fontcolor={seg_style.fill}:"
                     f"borderw={seg_style.stroke.width}:"
                     f"bordercolor={seg_style.stroke.color}:"
-                    f"x={_format_position(seg_style.position, 'x')}:"
-                    f"y={_format_position(seg_style.position, 'y')}+{line_offset}:"
+                    f"x={_format_position(seg_style.position, 'x', scale)}:"
+                    f"y={_format_position(seg_style.position, 'y', scale)}+{line_offset}:"
                     f"enable='between(t,{start:.2f},{end:.2f})'"
                 )
-                line_offset += seg_style.fontsize + 8  # simple line spacing
+                line_offset += int(round(seg_style.fontsize + 8 * scale))  # simple line spacing
         else:
             text = _escape_text(section.on_screen_text)
             start = max(section.start_sec, 0.0)
