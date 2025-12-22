@@ -76,6 +76,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="処理前に work/audio を削除してから再生成します。",
     )
+    parser.add_argument(
+        "--adjust-tickers",
+        action="store_true",
+        help="テロップ幅を事前調整してからレンダリングします（Pillowで計測）",
+    )
     return parser.parse_args()
 
 
@@ -416,6 +421,15 @@ def run_ffmpeg(command: list[str], dry_run: bool) -> None:
 def main() -> None:
     args = parse_args()
     script = load_script(args.script)
+    if args.adjust_tickers:
+        from copy import deepcopy
+        from scripts.adjust_tickers import adjust_script
+
+        script_copy = deepcopy(script)
+        changed = adjust_script(script_copy)
+        if changed:
+            print("[INFO] テロップ幅を自動調整しました（レンダリングに反映されます）。")
+        script = script_copy
     config = load_config(args.config)
     if args.clear_audio_cache:
         try:
