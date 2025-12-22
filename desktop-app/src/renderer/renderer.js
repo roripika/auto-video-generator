@@ -599,6 +599,7 @@
     aiGenerateBtn.disabled = true;
     const originalLabel = aiGenerateBtn.textContent;
     aiGenerateBtn.textContent = '生成中...';
+    setStatus('AIに問い合わせ中...', true);
     const sections = Number(aiSectionsInput.value) || 5;
     const themeId = themeSelect.value || state.themes[0].id;
     const preferShort = !!(aiShortAdjust && aiShortAdjust.checked);
@@ -631,6 +632,7 @@
       state.generating = false;
       aiGenerateBtn.disabled = false;
       aiGenerateBtn.textContent = originalLabel;
+      setStatus('', true);
     }
   }
 
@@ -1317,9 +1319,9 @@
     }
   }
 
-  function setStatus(message) {
+  function setStatus(message, persist = false) {
     statusBadge.textContent = message;
-    if (!message) return;
+    if (!message || persist) return;
     setTimeout(() => {
       statusBadge.textContent = '';
     }, 4000);
