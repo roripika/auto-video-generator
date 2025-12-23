@@ -8,6 +8,7 @@ const schedulerBridge = {
   openLog: (logPath) => ipcRenderer.invoke('scheduler:open-log', logPath),
   openStatus: () => ipcRenderer.invoke('scheduler:status-open'),
   statusData: () => ipcRenderer.invoke('scheduler:status-data'),
+  regenerateFromLog: (logPath) => ipcRenderer.invoke('scheduler:regenerate-from-log', logPath),
 };
 
 contextBridge.exposeInMainWorld('schedulerApi', schedulerBridge);

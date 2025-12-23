@@ -1161,6 +1161,67 @@ function registerHandlers() {
     };
   });
 
+  ipcMain.handle('scheduler:regenerate-from-log', async (event, logPath) => {
+    try {
+      // ログのテキストから YAMLファイルパスを検出
+      if (!fs.existsSync(logPath)) {
+        return { success: false, message: 'ログファイルが見つかりません' };
+      }
+      const logContent = fs.readFileSync(logPath, 'utf-8');
+      
+      // ログから "YAMLを保存: /path/to/script.yaml" のようなパターンを検出
+      let yamlPath = null;
+      const matches = logContent.match(/\[INFO\].*?(?:Script saved|Saved script snapshot).*?:\s*(.+\.yaml)/i);
+      if (matches && matches[1]) {
+        yamlPath = matches[1].trim();
+      } else {
+        // または keyword_YYYYMMDD_HHMMSS.yaml のパターンから生成YAMLを検出
+        const genMatches = logContent.match(/scripts\/generated\/auto_trend\/keyword_\d+_\d+\.yaml/);
+        if (genMatches) {
+          yamlPath = path.join(PROJECT_ROOT, genMatches[0]);
+        }
+      }
+
+      if (!yamlPath || !fs.existsSync(yamlPath)) {
+        return { success: false, message: 'YAMLファイルをログから特定できません' };
+      }
+
+      // generate_video.py を実行して再生成
+      return new Promise((resolve) => {
+        const args = ['scripts/generate_video.py', '--script', yamlPath, '--adjust-tickers'];
+        const proc = spawn(PYTHON_BIN, args, {
+          cwd: PROJECT_ROOT,
+          stdio: 'pipe',
+        });
+
+        let output = '';
+        proc.stdout?.on('data', (chunk) => {
+          output += chunk.toString();
+        });
+        proc.stderr?.on('data', (chunk) => {
+          output += chunk.toString();
+        });
+
+        proc.on('close', (code) => {
+          if (code === 0) {
+            resolve({ success: true, message: `動画を再生成しました: ${yamlPath}` });
+          } else {
+            resolve({ 
+              success: false, 
+              message: `再生成に失敗しました (exit code: ${code})` 
+            });
+          }
+        });
+
+        proc.on('error', (err) => {
+          resolve({ success: false, message: `プロセスエラー: ${err.message}` });
+        });
+      });
+    } catch (err) {
+      return { success: false, message: `エラー: ${err.message}` };
+    }
+  });
+
   ipcMain.handle('scheduler:status-open', () => {
     if (schedulerStatusWindow && !schedulerStatusWindow.isDestroyed()) {
       schedulerStatusWindow.focus();
