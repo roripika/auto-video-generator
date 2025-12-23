@@ -436,11 +436,23 @@ def _build_section_videos(
             line_offset = 0
             for seg_idx, seg in enumerate(section.on_screen_segments):
                 tier = "emphasis" if seg_idx == 0 else "body"
-                seg_style = _apply_tier_style(_segment_style(style, seg.style), tier)
+                # Normalize segment that may be a dict loaded from YAML
+                if isinstance(seg, dict):
+                    seg_text = str(seg.get("text", "") or "")
+                    seg_style_raw = seg.get("style")
+                    try:
+                        seg_style_obj = TextStyle.model_validate(seg_style_raw) if seg_style_raw else None
+                    except Exception:
+                        seg_style_obj = None
+                else:
+                    seg_text = str(getattr(seg, "text", "") or "")
+                    seg_style_obj = getattr(seg, "style", None)
+
+                seg_style = _apply_tier_style(_segment_style(style, seg_style_obj), tier)
                 offset = rank_offset if seg_idx == 0 else body_offset
                 off_x = offset.get("x", 0)
                 off_y = offset.get("y", 0)
-                for line in _split_lines(_escape_text(seg.text)):
+                for line in _split_lines(_escape_text(seg_text)):
                     x_expr = _format_position(base_pos, "x")
                     if align == "left":
                         x_expr = f"{off_x + 60}"
