@@ -166,7 +166,7 @@ def override_short_mode(script_path: Path, short_mode: str) -> None:
         print(f"[WARN] short_mode の上書きに失敗しました: {err}")
 
 
-def run_video_generation(script_path: Path, config_path: Optional[Path]) -> Optional[Path]:
+def run_video_generation(script_path: Path, config_path: Optional[Path], adjust_tickers: bool = False) -> Optional[Path]:
     """Invoke generate_video.py for the given script."""
     cmd = [
         sys.executable,
@@ -174,6 +174,8 @@ def run_video_generation(script_path: Path, config_path: Optional[Path]) -> Opti
         "--script",
         str(script_path),
     ]
+    if adjust_tickers:
+        cmd.append("--adjust-tickers")
     if config_path:
         cmd += ["--config", str(config_path)]
     print(f"[INFO] Generating video for {script_path}")
@@ -534,7 +536,11 @@ def run_once(args: argparse.Namespace) -> None:
         if not script_path:
             continue
         override_short_mode(script_path, args.short_mode)
-        video_path = run_video_generation(script_path, args.config)
+        video_path = run_video_generation(
+            script_path,
+            args.config,
+            adjust_tickers=args.adjust_tickers,
+        )
         if not video_path:
             continue
         try:
@@ -600,6 +606,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sections", type=int, default=5, help="Number of sections per script.")
     parser.add_argument("--config", type=Path, help="Optional config YAML/JSON for generate_video.py.")
     parser.add_argument(
+        "--adjust-tickers",
+        action="store_true",
+        default=True,
+        help="テロップ幅を自動調整してから動画生成する（generate_video.py --adjust-tickers を付与）",
+    )
+    parser.add_argument(
         "--interval-minutes",
         type=int,
         default=0,
@@ -640,6 +652,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    # 自動実行では必ずテロップ調整を有効化する
+    args.adjust_tickers = True
     runs = 0
     while True:
         runs += 1

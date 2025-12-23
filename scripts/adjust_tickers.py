@@ -17,7 +17,7 @@ from copy import deepcopy
 
 from scripts.generate_video import load_script
 from src.render.ffmpeg_runner import _resolve_font_path, _fit_font_size
-from src.models import TextStyle, ScriptModel
+from src.models import TextStyle, ScriptModel, OnScreenSegment
 
 
 def split_text_for_wrap(text: str):
@@ -47,9 +47,24 @@ def adjust_section(section, video_width: int, min_fontsize: int = 18):
   ensure_segments(section)
   changed = False
   max_width = int(video_width * 0.9)
-  for seg in section.on_screen_segments:
-    text = seg.get("text") or ""
-    style_dict = seg.get("style") or {}
+  for idx, seg in enumerate(section.on_screen_segments):
+    # Pydantic OnScreenSegment or dict に対応
+    if hasattr(seg, "model_dump"):
+      seg_dict = seg.model_dump()
+      seg_is_model = True
+    elif isinstance(seg, dict):
+      seg_dict = seg
+      seg_is_model = False
+    else:
+      continue
+
+    text = seg_dict.get("text") or ""
+    style_dict = seg_dict.get("style") or {}
+    # フォント指定がないケースに備えてデフォルトを補完
+    if not style_dict.get("font"):
+      style_dict["font"] = "Noto Sans JP"
+    if "fontsize" not in style_dict or style_dict.get("fontsize") in (None, 0, ""):
+      style_dict["fontsize"] = 64
     # build TextStyle for measurement
     style = TextStyle.model_validate(style_dict)
     font_path = _resolve_font_path(style.font)
@@ -65,10 +80,17 @@ def adjust_section(section, video_width: int, min_fontsize: int = 18):
       wrapped = split_text_for_wrap(text)
       wrapped_size = _fit_font_size(wrapped, font_path, style.fontsize or orig_size, max_width, min_fontsize)
       if wrapped_size <= style.fontsize:
-        seg["text"] = wrapped
+        seg_dict["text"] = wrapped
         style.fontsize = wrapped_size
         changed = True
-    seg["style"] = style.model_dump()
+    seg_dict["style"] = style.model_dump()
+
+    # 反映
+    if seg_is_model:
+      seg.text = seg_dict["text"]
+      seg.style = seg_dict["style"]
+    else:
+      section.on_screen_segments[idx] = OnScreenSegment(**seg_dict)
   return changed
 
 
