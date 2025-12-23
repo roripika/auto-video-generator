@@ -96,7 +96,14 @@ def _resolve_font_path(font_name: str) -> str:
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp"}
 
 
-def _fit_font_size(text: str, font_path: str, fontsize: int, max_width: int, min_fontsize: int = 40) -> int:
+def _fit_font_size(
+    text: str,
+    font_path: str,
+    fontsize: int,
+    max_width: int,
+    min_fontsize: int = 40,
+    stroke_width: int = 0,
+) -> int:
     """
     Use Pillow to shrink fontsize until text fits within max_width.
     
@@ -110,13 +117,16 @@ def _fit_font_size(text: str, font_path: str, fontsize: int, max_width: int, min
     戻り値: 調整後のフォントサイズ
     """
     try:
-        from PIL import ImageFont
+        from PIL import ImageFont, Image, ImageDraw
     except Exception:
         return fontsize
     try:
         current = max(fontsize, min_fontsize)
         # Pillow can raise OSError if the font is invalid
         font = ImageFont.truetype(font_path, size=current)
+        # textbbox requires a drawing context
+        dummy = Image.new("RGB", (8, 8))
+        draw = ImageDraw.Draw(dummy)
         lines = text.split("\n")
         
         while current > min_fontsize:
@@ -126,7 +136,8 @@ def _fit_font_size(text: str, font_path: str, fontsize: int, max_width: int, min
                     widths.append(0)
                     continue
                 try:
-                    bbox = font.getbbox(line)
+                    # Include stroke width in measurement to avoid underestimation
+                    bbox = draw.textbbox((0, 0), line, font=font, stroke_width=max(0, stroke_width))
                     widths.append(bbox[2] - bbox[0])
                 except Exception:
                     widths.append(0)
@@ -258,7 +269,7 @@ def _build_drawtext_filters(style: TextStyle, timeline: TimelineSummary, script:
     section_map = {s.id: s for s in script.sections}
     scale = _short_scale(script)
     video_width = getattr(script.video, "width", 1920) or 1920
-    max_text_width = int(video_width * 0.9)  # leave 10% margin
+    max_text_width = int(video_width * 0.92)  # leave ~8% margin on each side
     for section in timeline.sections:
         section_model = section_map.get(section.id)
         segments = section_model.on_screen_segments if section_model else []
@@ -273,7 +284,12 @@ def _build_drawtext_filters(style: TextStyle, timeline: TimelineSummary, script:
                 # Fit font size to available width using Pillow measurement
                 font_path = _resolve_font_path(seg_style.font)
                 seg_style.fontsize = _fit_font_size(
-                    _escape_text(seg.text), font_path, seg_style.fontsize or 0, max_text_width, min_fontsize=18
+                    _escape_text(seg.text),
+                    font_path,
+                    seg_style.fontsize or 0,
+                    max_text_width,
+                    min_fontsize=40,
+                    stroke_width=(seg_style.stroke.width or 0),
                 )
                 text = _escape_text(seg.text)
                 start = max(section.start_sec, 0.0)
@@ -295,16 +311,31 @@ def _build_drawtext_filters(style: TextStyle, timeline: TimelineSummary, script:
             text = _escape_text(section.on_screen_text)
             start = max(section.start_sec, 0.0)
             end = max(section.start_sec + section.duration_sec, start + 0.1)
+            # Also fit base style (intro/title-only sections)
+            base_style = style.model_copy(deep=True)
+            if scale != 1.0:
+                base_style.fontsize = int(round((base_style.fontsize or 0) * scale))
+                if base_style.stroke and base_style.stroke.width is not None:
+                    base_style.stroke.width = max(1, int(round(base_style.stroke.width * scale)))
+            font_path = _resolve_font_path(base_style.font)
+            base_style.fontsize = _fit_font_size(
+                text,
+                font_path,
+                base_style.fontsize or 0,
+                max_text_width,
+                min_fontsize=40,
+                stroke_width=(base_style.stroke.width or 0),
+            )
             filters.append(
                 "drawtext="
-                f"fontfile='{_resolve_font_path(style.font)}':"
+                f"fontfile='{_resolve_font_path(base_style.font)}':"
                 f"text='{text}':"
-                f"fontsize={style.fontsize}:"
-                f"fontcolor={style.fill}:"
-                f"borderw={style.stroke.width}:"
-                f"bordercolor={style.stroke.color}:"
-                f"x={_format_position(style.position, 'x')}:"
-                f"y={_format_position(style.position, 'y')}:"
+                f"fontsize={base_style.fontsize}:"
+                f"fontcolor={base_style.fill}:"
+                f"borderw={base_style.stroke.width}:"
+                f"bordercolor={base_style.stroke.color}:"
+                f"x={_format_position(base_style.position, 'x', scale)}:"
+                f"y={_format_position(base_style.position, 'y', scale)}:"
                 f"enable='between(t,{start:.2f},{end:.2f})'"
             )
     return ",".join(filters)
