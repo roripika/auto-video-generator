@@ -262,10 +262,11 @@ textarea {
   background: #1b1b23;
   border: 1px solid #2d2d36;
   border-radius: 12px;
-  padding: 16px;
+  padding: 20px 24px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 20px;
+  box-sizing: border-box;
 }
 
 .settings-panel label {
@@ -310,31 +311,35 @@ textarea {
 .task-list {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
   max-height: 60vh;
   overflow-y: auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 .task-list--compact {
   max-height: 220px;
-  padding: 6px;
-  gap: 8px;
+  padding: 8px;
+  gap: 12px;
 }
 
 .task-item {
   border: 1px solid #2a2a33;
   border-radius: 8px;
-  padding: 14px;
+  padding: 18px 20px;
   background: #20202a;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
 }
 .task-item--compact {
-  padding: 10px;
-  gap: 6px;
+  padding: 12px 14px;
+  gap: 10px;
 }
 
 .task-title {
@@ -345,8 +350,9 @@ textarea {
 .task-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 16px;
   align-items: center;
+  width: 100%;
 }
 
 .task-row input[type='text'],
@@ -358,8 +364,8 @@ textarea {
 .task-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  min-width: 150px;
+  gap: 8px;
+  min-width: 160px;
 }
 
 .task-label {
@@ -371,27 +377,31 @@ textarea {
   font-size: 0.85rem;
   color: #b3b3c7;
   display: flex;
-  gap: 12px;
+  gap: 16px;
   flex-wrap: wrap;
+  padding-top: 4px;
 }
 .task-meta--compact {
   font-size: 0.8rem;
   color: #c6c6d3;
+  gap: 12px;
 }
 
 .upcoming-panel {
-  margin: 12px 0;
+  margin: 16px 0;
   border: 1px solid #2a2a33;
   border-radius: 10px;
-  padding: 10px;
+  padding: 14px 16px;
   background: #1c1c24;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .upcoming-header {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  margin-bottom: 6px;
+  margin-bottom: 10px;
 }
 
 .upcoming-header h3 {
@@ -419,7 +429,8 @@ textarea {
 
 .asset-actions {
   display: flex;
-  gap: 8px;
+  gap: 12px;
+  margin-top: 8px;
 }
 
 .asset-fetcher {
