@@ -96,8 +96,19 @@ def _resolve_font_path(font_name: str) -> str:
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp"}
 
 
-def _fit_font_size(text: str, font_path: str, fontsize: int, max_width: int, min_fontsize: int = 24) -> int:
-    """Use Pillow to shrink fontsize until text fits within max_width."""
+def _fit_font_size(text: str, font_path: str, fontsize: int, max_width: int, min_fontsize: int = 40) -> int:
+    """
+    Use Pillow to shrink fontsize until text fits within max_width.
+    
+    Args:
+        text: テキスト（複数行対応: \n で分割）
+        font_path: フォントファイルのパス
+        fontsize: 初期フォントサイズ
+        max_width: 最大幅（px）
+        min_fontsize: 最小フォントサイズ（デフォルト: 40。視認性確保）
+    
+    戻り値: 調整後のフォントサイズ
+    """
     try:
         from PIL import ImageFont
     except Exception:
@@ -107,10 +118,11 @@ def _fit_font_size(text: str, font_path: str, fontsize: int, max_width: int, min
         # Pillow can raise OSError if the font is invalid
         font = ImageFont.truetype(font_path, size=current)
         lines = text.split("\n")
+        
         while current > min_fontsize:
             widths = []
             for line in lines:
-                if not line:
+                if not line.strip():
                     widths.append(0)
                     continue
                 try:
@@ -118,11 +130,14 @@ def _fit_font_size(text: str, font_path: str, fontsize: int, max_width: int, min
                     widths.append(bbox[2] - bbox[0])
                 except Exception:
                     widths.append(0)
+            
             max_line = max(widths) if widths else 0
             if max_line <= max_width:
                 break
+            
             current = max(min_fontsize, int(round(current * 0.9)))
             font = ImageFont.truetype(font_path, size=current)
+        
         return current
     except Exception:
         return fontsize

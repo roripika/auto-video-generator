@@ -2,7 +2,6 @@
 
 最終更新: 2025-12-20 (JST)
 作成目的: Codex(エージェント)が実装を進めやすいように、要件・仕様・入出力・設計方針を明確化する。
-備考: 実装済み機能・アーキテクチャは [docs/design.md](docs/design.md)、[docs/llm_prompting.md](docs/llm_prompting.md)、[docs/media_pipeline_spec.md](docs/media_pipeline_spec.md) を参照。
 
 ---
 ## 0. ゴール/非ゴール
