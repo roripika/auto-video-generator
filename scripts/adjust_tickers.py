@@ -261,9 +261,8 @@ def main():
         out_dir.mkdir(parents=True, exist_ok=True)
         out_path = out_dir / f"{in_path.stem}_adjusted.yaml"
 
-    from src.models import yaml_dump
-
-    out_path.write_text(yaml_dump(script_copy), encoding="utf-8")
+    import yaml
+    out_path.write_text(yaml.dump(script_copy.model_dump(), allow_unicode=True, sort_keys=False), encoding="utf-8")
     if changed:
         logger.info(f"✅ Adjusted YAML saved: {out_path}")
     else:

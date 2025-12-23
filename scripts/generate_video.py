@@ -79,7 +79,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--adjust-tickers",
         action="store_true",
-        help="テロップ幅を事前調整してからレンダリングします（Pillowで計測）",
+        default=True,
+        help="テロップ幅を事前調整してからレンダリングします（Pillowで計測）。デフォルト有効。",
+    )
+    parser.add_argument(
+        "--no-adjust-tickers",
+        dest="adjust_tickers",
+        action="store_false",
+        help="テロップ幅の自動調整を無効化します。",
     )
     return parser.parse_args()
 
