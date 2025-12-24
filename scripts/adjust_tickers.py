@@ -14,33 +14,48 @@ Usage:
 
 import argparse
 import logging
+import sys
 from pathlib import Path
 from copy import deepcopy
 from typing import Tuple
 
-from scripts.generate_video import load_script
+# プロジェクトルートをパスに追加
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.script_io import load_script
 from src.render.ffmpeg_runner import _resolve_font_path, _fit_font_size
 from src.models import TextStyle, ScriptModel, OnScreenSegment
 
 logger = logging.getLogger(__name__)
 
 
-def verify_fit(text: str, font_path: str, fontsize: int, max_width: int) -> Tuple[bool, float]:
+def verify_fit(text: str, font_path: str, fontsize: int, max_width: int, stroke_width: int = 0) -> Tuple[bool, float]:
     """
     テキストが max_width に収まるかを複数行対応で検証。
+    
+    Args:
+        text: 検証するテキスト（改行対応）
+        font_path: フォントファイルパス
+        fontsize: フォントサイズ
+        max_width: 最大幅（px）
+        stroke_width: ストローク幅（デフォルト: 0）
     
     戻り値: (is_fit: bool, max_line_width: float)
       - is_fit: True なら収まっている
       - max_line_width: 最長行の幅（px）。-1 はエラー
     """
     try:
-        from PIL import ImageFont
+        from PIL import ImageFont, Image, ImageDraw
     except Exception as e:
         logger.error(f"Pillow import failed: {e}")
         return True, 0
 
     try:
         font = ImageFont.truetype(font_path, size=fontsize)
+        dummy = Image.new("RGB", (8, 8))
+        draw = ImageDraw.Draw(dummy)
         lines = text.split("\n")
         
         max_width_found = 0
@@ -48,8 +63,8 @@ def verify_fit(text: str, font_path: str, fontsize: int, max_width: int) -> Tupl
             if not line.strip():
                 continue
             try:
-                # 各行を個別に計測
-                bbox = font.getbbox(line)
+                # stroke_width を含めて計測（ffmpeg_runner.py と同じ方法）
+                bbox = draw.textbbox((0, 0), line, font=font, stroke_width=max(0, stroke_width))
                 line_width = bbox[2] - bbox[0]
                 max_width_found = max(max_width_found, line_width)
                 
@@ -134,9 +149,14 @@ def adjust_section(section, video_width: int, min_fontsize: int = 40, scale_fact
         current_fontsize = orig_fontsize
         current_text = text
         
+        # ストローク幅を取得（デフォルト: 5）
+        stroke_width = 5
+        if style.stroke and hasattr(style.stroke, 'width'):
+            stroke_width = style.stroke.width or 5
+        
         # ===== 段階1: 初期判定 =====
         logger.debug(f"Segment: '{text[:30]}...' ({len(text)} chars)")
-        is_fit, max_line_width = verify_fit(current_text, font_path, current_fontsize, max_width)
+        is_fit, max_line_width = verify_fit(current_text, font_path, current_fontsize, max_width, stroke_width)
         
         if is_fit:
             logger.debug(f"  ✅ No adjustment needed (width={max_line_width:.0f}px)")
@@ -151,7 +171,7 @@ def adjust_section(section, video_width: int, min_fontsize: int = 40, scale_fact
         font_reduced = False
         while current_fontsize > min_fontsize:
             current_fontsize = max(min_fontsize, int(round(current_fontsize * 0.9)))
-            is_fit, line_width = verify_fit(current_text, font_path, current_fontsize, max_width)
+            is_fit, line_width = verify_fit(current_text, font_path, current_fontsize, max_width, stroke_width)
             if is_fit:
                 logger.info(f"    ✅ [P1] Font size reduced to {current_fontsize}pt (fit={line_width:.0f}px)")
                 changed = True
@@ -164,7 +184,7 @@ def adjust_section(section, video_width: int, min_fontsize: int = 40, scale_fact
             
             # 優先順位2: 改行挿入
             wrapped = split_text_for_wrap(current_text)
-            is_fit, line_width = verify_fit(wrapped, font_path, current_fontsize, max_width)
+            is_fit, line_width = verify_fit(wrapped, font_path, current_fontsize, max_width, stroke_width)
             
             if is_fit:
                 current_text = wrapped
@@ -176,7 +196,7 @@ def adjust_section(section, video_width: int, min_fontsize: int = 40, scale_fact
                 wrapped_fontsize = current_fontsize
                 while wrapped_fontsize > min_fontsize:
                     wrapped_fontsize = max(min_fontsize, int(round(wrapped_fontsize * 0.9)))
-                    is_fit, _ = verify_fit(wrapped, font_path, wrapped_fontsize, max_width)
+                    is_fit, _ = verify_fit(wrapped, font_path, wrapped_fontsize, max_width, stroke_width)
                     if is_fit:
                         current_text = wrapped
                         current_fontsize = wrapped_fontsize
@@ -187,7 +207,7 @@ def adjust_section(section, video_width: int, min_fontsize: int = 40, scale_fact
                     # 優先順位3: スケーリング
                     logger.debug(f"  [P3] Trying scaling ({scale_factor}x)...")
                     scaled_fontsize = max(min_fontsize, int(current_fontsize * scale_factor))
-                    is_fit, line_width = verify_fit(current_text, font_path, scaled_fontsize, max_width)
+                    is_fit, line_width = verify_fit(current_text, font_path, scaled_fontsize, max_width, stroke_width)
                     
                     if is_fit:
                         current_fontsize = scaled_fontsize
@@ -201,7 +221,7 @@ def adjust_section(section, video_width: int, min_fontsize: int = 40, scale_fact
         
         # ===== 段階3: 最終検証 =====
         logger.debug(f"  [Stage3] Final verification...")
-        is_fit_final, final_width = verify_fit(current_text, font_path, current_fontsize, max_width)
+        is_fit_final, final_width = verify_fit(current_text, font_path, current_fontsize, max_width, stroke_width)
         
         if not is_fit_final:
             logger.error(f"    🚨 Final verification FAILED: width={final_width:.0f}px > {max_width}px")
@@ -213,20 +233,27 @@ def adjust_section(section, video_width: int, min_fontsize: int = 40, scale_fact
         seg_dict["text"] = current_text
         seg_dict["style"] = style.model_dump()
         
-        # 反映
-        if seg_is_model:
-            seg.text = current_text
-            seg.style = style.model_dump()
-        else:
-            section.on_screen_segments[idx] = OnScreenSegment(**seg_dict)
+        # 反映: 必ず新しいオブジェクトを作成してリストに代入
+        section.on_screen_segments[idx] = OnScreenSegment(**seg_dict)
     
     return changed
 
 def adjust_script(script: ScriptModel):
     video_width = getattr(script.video, "width", 1920) or 1920
+    video_height = getattr(script.video, "height", 1080) or 1080
+    short_mode = getattr(script.video, "short_mode", None)
+    
+    # short_mode の場合、実際のレンダリング解像度は height x width にスワップされる
+    if short_mode == "short":
+        actual_width = video_height  # 1080
+        logger.info(f"Short mode detected: using width={actual_width}px (swapped from {video_width}x{video_height})")
+    else:
+        actual_width = video_width
+        logger.info(f"Normal mode: using width={actual_width}px")
+    
     changed_any = False
     for sec in script.sections:
-        changed_any = adjust_section(sec, video_width) or changed_any
+        changed_any = adjust_section(sec, actual_width) or changed_any
     return changed_any
 
 
