@@ -35,6 +35,7 @@
   const settingsYoutubeForceInput = document.getElementById('settingsYoutubeForce');
   const audioGenerateBtn = document.getElementById('audioGenerateBtn');
   const audioClearBtn = document.getElementById('audioClearBtn');
+  const cacheClearBtn = document.getElementById('cacheClearBtn');
   const timelineRefreshBtn = document.getElementById('timelineRefreshBtn');
   const timelineSummaryEl = document.getElementById('timelineSummary');
   const videoGenerateBtn = document.getElementById('videoGenerateBtn');
@@ -616,6 +617,7 @@
         brief: briefForGen,
         sections,
         themeId,
+        targetSeconds: preferShort ? 60 : undefined,
       });
       if (!script.video) script.video = {};
       script.video.short_mode = preferShort ? 'short' : 'off';
@@ -1781,6 +1783,22 @@
       } finally {
         audioClearBtn.disabled = false;
         audioClearBtn.textContent = '音声キャッシュ削除';
+      }
+    });
+  }
+  if (cacheClearBtn && window.api.clearAllCache) {
+    cacheClearBtn.addEventListener('click', async () => {
+      try {
+        cacheClearBtn.disabled = true;
+        cacheClearBtn.textContent = '削除中...';
+        await window.api.clearAllCache();
+        setStatus('キャッシュを一括削除しました。');
+      } catch (err) {
+        console.error(err);
+        setStatus('キャッシュの一括削除に失敗しました。');
+      } finally {
+        cacheClearBtn.disabled = false;
+        cacheClearBtn.textContent = 'キャッシュ一括削除';
       }
     });
   }

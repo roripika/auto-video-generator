@@ -40,6 +40,7 @@ class ScriptFromBriefGenerator:
     llm: OpenAIChatClient
     theme: Optional[ThemeTemplate]
     section_count: int
+    target_seconds: Optional[int] = None
 
     def generate(self, brief: str) -> ScriptModel:
         if not brief or not brief.strip():
@@ -135,6 +136,20 @@ class ScriptFromBriefGenerator:
             },
         }
 
+        # Compute optional short constraints
+        short_constraints = ""
+        if self.target_seconds and self.target_seconds > 0:
+            total_chars = int(max(120, min(1200, self.target_seconds * 7 * 0.9)))
+            intro_c = max(30, min(60, int(total_chars * 0.15)))
+            outro_c = max(30, min(60, int(total_chars * 0.15)))
+            per_c = max(45, min(90, int((total_chars - intro_c - outro_c) / max(1, section_count))))
+            total_low = max(200, total_chars - 40)
+            short_constraints = (
+                f"\n\n[短尺制約]\n"
+                f"- 総ナレーション文字数は概ね {total_low}〜{total_chars} 文字。\n"
+                f"- 導入 {intro_c-10}〜{intro_c}、各セクション {per_c-10}〜{per_c}、締め {outro_c-10}〜{outro_c}。\n"
+                f"- 文字数制約は厳守し、冗長な言い換えや重複は避ける。\n"
+            )
         system_msg = (
             "あなたは日本語で雑学/ライフハック動画の台本を書くプロの構成作家です。"
             "ライフハック動画のテンプレート（フック→根拠→実演→ブリッジ）に沿って、"
@@ -160,6 +175,7 @@ class ScriptFromBriefGenerator:
             "固有名詞・作品名がローマ字や英語表記の場合、ナレーションでは誤読を避けるためカタカナ表記に置き換えてください。"
             "\\n\\n重要: 出力は必ず有効な JSON オブジェクト1つのみで、前後に説明文やコードフェンス（```）を入れないでください。"
         )
+        system_msg += short_constraints
 
         user_msg = f"""
 テーマ: {theme.label if theme else '汎用ライフハック'}
@@ -177,7 +193,7 @@ CTA: {cta}
 
 制約:
 - すべて日本語で記述する。
-- 各セクションは 80〜120 文字程度のナレーションを含める。
+- {('各セクションは 80〜120 文字程度のナレーションを含める。') if not self.target_seconds else '文字数制約を厳守し、冗長表現は避ける（上の短尺制約を参照）。'}
 - { ' `rank` は降順（例: 5→1）。`on_screen_text` に「第X位：タイトル」を含める。' if layout == 'ranking' else '構成は導入→展開→例→まとめの流れを意識し、セクション見出しと要点を入れる。' }
 - `bridge` は次の{ '順位' if layout == 'ranking' else 'セクション' }への期待や話題転換を意識する。
 - `cta` は視聴者にコメント/高評価/登録を促す短い文。
@@ -428,6 +444,33 @@ CTA: {cta}
             raise ScriptGenerationError(
                 f"Expected {self.section_count} sections but received {len(new_sections)-1} from LLM."
             )
+
+        # If short target is defined, trim narration to fit character budgets
+        if self.target_seconds and self.target_seconds > 0:
+            total_chars = int(max(120, min(1200, self.target_seconds * 7 * 0.9)))
+            intro_c = max(30, min(60, int(total_chars * 0.15)))
+            outro_c = max(30, min(60, int(total_chars * 0.15)))
+            per_c = max(45, min(90, int((total_chars - intro_c - outro_c) / max(1, self.section_count))))
+
+            def _trim(text: str, limit: int) -> str:
+                t = (text or '').strip()
+                if len(t) <= limit:
+                    return t
+                # Prefer trimming at sentence boundaries
+                cut = t[: limit + 20]
+                for sep in ['。', '！', '？', '\\n']:
+                    pos = cut.rfind(sep)
+                    if pos >= 0 and pos >= limit - 20:
+                        return cut[: pos + 1].strip()
+                return t[:limit].strip()
+
+            for i, sec in enumerate(new_sections):
+                if sec.id == 'intro':
+                    sec.narration = _trim(sec.narration or '', intro_c)
+                elif sec.id == 'outro':
+                    sec.narration = _trim(sec.narration or '', outro_c)
+                else:
+                    sec.narration = _trim(sec.narration or '', per_c)
 
         script.sections = new_sections
         if script.upload_prep:

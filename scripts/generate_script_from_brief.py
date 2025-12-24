@@ -31,6 +31,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--brief-file", type=Path, help="ブリーフが記載されたテキストファイル。")
     parser.add_argument("--theme-id", default="lifehack_surprise", help="configs/themes/ 内のテーマ ID。")
     parser.add_argument("--sections", type=int, help="ランキング項目数。未指定時はテーマ設定に従う。")
+    parser.add_argument("--target-seconds", type=int, help="目標尺（秒）。例: 60 を指定するとショート向けに最適化。")
     parser.add_argument("--output", type=Path, help="生成した YAML の出力先。未指定時は scripts/generated/ 以下。")
     parser.add_argument("--stdout", action="store_true", help="生成結果をファイルではなく標準出力へ書き出す。")
     parser.add_argument(
@@ -112,7 +113,12 @@ def main() -> None:
         )
     except LLMError as err:
         raise SystemExit(f"[ERROR] {err}") from err
-    generator = ScriptFromBriefGenerator(llm=client, theme=theme, section_count=section_count)
+    generator = ScriptFromBriefGenerator(
+        llm=client,
+        theme=theme,
+        section_count=section_count,
+        target_seconds=(args.target_seconds if args.target_seconds and args.target_seconds > 0 else None),
+    )
 
     try:
         script = generator.generate(brief)

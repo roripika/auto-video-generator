@@ -72,7 +72,7 @@ def ensure_creds(client_secrets: Path, credentials: Path):
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_secrets_file(str(client_secrets), SCOPES)
-            creds = flow.run_console()
+            creds = flow.run_local_server(port=0, authorization_prompt_message='以下のURLをブラウザで開いて認可してください:\n{url}')
         credentials.parent.mkdir(parents=True, exist_ok=True)
         with open(credentials, "wb") as token:
             pickle.dump(creds, token)

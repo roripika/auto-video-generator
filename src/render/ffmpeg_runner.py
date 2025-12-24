@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import os
 import subprocess
+import hashlib
+import tempfile
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 from src.models import ScriptModel, TextPosition, TextStyle
 from src.timeline import TimelineSummary
@@ -116,6 +118,9 @@ def _fit_font_size(
     
     戻り値: 調整後のフォントサイズ
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
         from PIL import ImageFont, Image, ImageDraw
     except Exception:
@@ -129,7 +134,11 @@ def _fit_font_size(
         draw = ImageDraw.Draw(dummy)
         lines = text.split("\n")
         
+        iteration = 0
+        logger.debug(f"[_fit_font_size] Starting: fontsize={current}pt max_width={max_width}px lines={len(lines)}")
+        
         while current > min_fontsize:
+            iteration += 1
             widths = []
             for line in lines:
                 if not line.strip():
@@ -143,15 +152,193 @@ def _fit_font_size(
                     widths.append(0)
             
             max_line = max(widths) if widths else 0
+            logger.debug(f"[_fit_font_size] iter={iteration} fontsize={current}pt max_line_width={max_line:.1f}px")
+            
             if max_line <= max_width:
+                logger.info(f"✅ [_fit_font_size] Fits! fontsize={current}pt width={max_line:.1f}px <= {max_width}px")
                 break
             
             current = max(min_fontsize, int(round(current * 0.9)))
             font = ImageFont.truetype(font_path, size=current)
         
+        if current == min_fontsize:
+            logger.warning(f"⚠️ [_fit_font_size] Reached min_fontsize={min_fontsize}pt, final width may exceed")
+        
         return current
     except Exception:
         return fontsize
+
+
+def _hex_to_rgba(color: str, alpha: int = 255) -> Tuple[int, int, int, int]:
+    col = (color or "").strip().lstrip("#")
+    if len(col) == 3:
+        col = "".join(c * 2 for c in col)
+    if len(col) == 6:
+        col += "ff"
+    try:
+        r = int(col[0:2], 16)
+        g = int(col[2:4], 16)
+        b = int(col[4:6], 16)
+        a = alpha if len(col) < 8 else int(col[6:8], 16)
+        return (r, g, b, a)
+    except Exception:
+        return (255, 255, 255, alpha)
+
+
+def _split_text_to_lines(text: str, max_lines: int = 3) -> str:
+    """Smart text splitting to fit within max_lines by breaking at spaces or punctuation."""
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    # Already has line breaks
+    existing_lines = text.split("\n")
+    if len(existing_lines) >= max_lines:
+        logger.debug(f"[_split_text_to_lines] Text already has {len(existing_lines)} lines, keeping as-is")
+        return text
+    
+    # Try to split into max_lines
+    text_clean = text.replace("\n", "")
+    target_len = len(text_clean) // max_lines
+    
+    # Find good break points (spaces, punctuation)
+    break_chars = [" ", "、", "。", "，", "．", "！", "？", "・"]
+    lines = []
+    remaining = text_clean
+    
+    for i in range(max_lines - 1):
+        if len(remaining) <= target_len:
+            lines.append(remaining)
+            remaining = ""
+            break
+        
+        # Look for break point around target position
+        search_start = max(0, target_len - 10)
+        search_end = min(len(remaining), target_len + 10)
+        best_pos = -1
+        
+        for pos in range(search_end, search_start, -1):
+            if pos < len(remaining) and remaining[pos] in break_chars:
+                best_pos = pos + 1
+                break
+        
+        if best_pos > 0:
+            lines.append(remaining[:best_pos].strip())
+            remaining = remaining[best_pos:].strip()
+        else:
+            # No good break point, force split
+            lines.append(remaining[:target_len])
+            remaining = remaining[target_len:]
+    
+    if remaining:
+        lines.append(remaining)
+    
+    result = "\n".join(lines)
+    logger.info(f"📝 [_split_text_to_lines] Split text into {len(lines)} lines (max={max_lines})")
+    return result
+
+
+def _render_text_image(
+    text: str,
+    font_path: str,
+    fontsize: int,
+    fill: str,
+    stroke_color: str,
+    stroke_width: int,
+    line_gap: int,
+    max_width: int | None = None,
+) -> tuple[str, int, int]:
+    """Render text into a transparent PNG and return (path, w, h).
+    
+    Args:
+        max_width: If provided, will reduce fontsize to fit within this width
+    """
+    from PIL import Image, ImageDraw, ImageFont
+    import logging
+    logger = logging.getLogger(__name__)
+
+    original_fontsize = fontsize
+    original_text = text
+
+    # If max_width specified, ensure text fits by reducing fontsize if needed
+    if max_width:
+        logger.debug(f"[_render_text_image] Input: fontsize={fontsize}pt max_width={max_width}px text_len={len(text)} lines={text.count(chr(10))+1}")
+        
+        # First attempt: reduce fontsize with current line breaks
+        fontsize = _fit_font_size(text, font_path, fontsize, max_width, min_fontsize=30, stroke_width=stroke_width)
+        
+        # Check if it actually fits
+        font_test = ImageFont.truetype(font_path, fontsize)
+        dummy_test = Image.new("RGBA", (8, 8))
+        draw_test = ImageDraw.Draw(dummy_test)
+        lines_test = [ln for ln in text.split("\n") if ln.strip()]
+        if not lines_test:
+            lines_test = [""]
+        
+        widths_test = []
+        for ln in lines_test:
+            bbox = draw_test.textbbox((0, 0), ln, font=font_test, stroke_width=max(0, stroke_width))
+            widths_test.append(bbox[2] - bbox[0])
+        
+        max_line_width = max(widths_test) if widths_test else 0
+        
+        # If still exceeds and has fewer than 3 lines, try splitting
+        if max_line_width > max_width and len(lines_test) < 3:
+            logger.warning(f"⚠️ [_render_text_image] Still exceeds: {max_line_width:.1f}px > {max_width}px, trying 3-line split")
+            text = _split_text_to_lines(text, max_lines=3)
+            # Re-fit with split text
+            fontsize = _fit_font_size(text, font_path, original_fontsize, max_width, min_fontsize=30, stroke_width=stroke_width)
+
+    font = ImageFont.truetype(font_path, fontsize)
+    lines = [ln for ln in text.split("\n") if ln.strip()]
+    if not lines:
+        lines = [""]
+
+    draw_dummy = ImageDraw.Draw(Image.new("RGBA", (8, 8)))
+    widths = []
+    heights = []
+    for ln in lines:
+        bbox = draw_dummy.textbbox((0, 0), ln, font=font, stroke_width=max(0, stroke_width))
+        widths.append(bbox[2] - bbox[0])
+        heights.append(bbox[3] - bbox[1])
+
+    total_height = sum(heights) + line_gap * (len(lines) - 1)
+    canvas_w = max(widths) if widths else 1
+    canvas_h = total_height
+    
+    if max_width:
+        fit_status = "✅ FITS" if canvas_w <= max_width else "❌ EXCEEDS"
+        logger.info(
+            f"{fit_status} [_render_text_image] Final: fontsize={original_fontsize}→{fontsize}pt "
+            f"canvas={canvas_w}x{canvas_h}px max_width={max_width}px lines={len(lines)}"
+        )
+
+    img = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    y = 0
+    fill_rgba = _hex_to_rgba(fill)
+    stroke_rgba = _hex_to_rgba(stroke_color)
+    for ln, h in zip(lines, heights):
+        draw.text((0, y), ln, font=font, fill=fill_rgba, stroke_width=max(0, stroke_width), stroke_fill=stroke_rgba)
+        y += h + line_gap
+
+    # Include max_width in hash so different resolutions get separate cache entries
+    hash_key = hashlib.sha1(
+        f"{text}|{font_path}|{fontsize}|{fill}|{stroke_color}|{stroke_width}|{line_gap}|{max_width or 0}".encode("utf-8")
+    ).hexdigest()[:16]
+    
+    # Use outputs/cache/text/ as persistent cache (prefer project-local)
+    # Fall back to /tmp if project root not available
+    try:
+        project_root = Path(__file__).resolve().parents[2]
+        out_dir = project_root / "outputs" / "cache" / "text"
+    except Exception:
+        # Fall back to /tmp if we can't determine project root
+        out_dir = Path(tempfile.gettempdir()) / "avgen_text_cache"
+    
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"text_{hash_key}.png"
+    img.save(out_path, format="PNG")
+    return str(out_path), canvas_w, canvas_h
 
 
 def _format_position(value: TextPosition, axis: str, scale: float = 1.0) -> str:
@@ -264,82 +451,6 @@ def _split_lines(text: str) -> List[str]:
     return [ln for ln in text.split("\n") if ln.strip()]
 
 
-def _build_drawtext_filters(style: TextStyle, timeline: TimelineSummary, script: ScriptModel) -> str:
-    filters = []
-    section_map = {s.id: s for s in script.sections}
-    scale = _short_scale(script)
-    video_width = getattr(script.video, "width", 1920) or 1920
-    max_text_width = int(video_width * 0.92)  # leave ~8% margin on each side
-    for section in timeline.sections:
-        section_model = section_map.get(section.id)
-        segments = section_model.on_screen_segments if section_model else []
-        if segments:
-            line_offset = 0
-            for seg in segments:
-                seg_style = _segment_style(style, seg.style)
-                if scale != 1.0:
-                    seg_style.fontsize = int(round((seg_style.fontsize or 0) * scale))
-                    if seg_style.stroke and seg_style.stroke.width is not None:
-                        seg_style.stroke.width = max(1, int(round(seg_style.stroke.width * scale)))
-                # Fit font size to available width using Pillow measurement
-                font_path = _resolve_font_path(seg_style.font)
-                seg_style.fontsize = _fit_font_size(
-                    _escape_text(seg.text),
-                    font_path,
-                    seg_style.fontsize or 0,
-                    max_text_width,
-                    min_fontsize=40,
-                    stroke_width=(seg_style.stroke.width or 0),
-                )
-                text = _escape_text(seg.text)
-                start = max(section.start_sec, 0.0)
-                end = max(section.start_sec + section.duration_sec, start + 0.1)
-                filters.append(
-                    "drawtext="
-                    f"fontfile='{_resolve_font_path(seg_style.font)}':"
-                    f"text='{text}':"
-                    f"fontsize={seg_style.fontsize}:"
-                    f"fontcolor={seg_style.fill}:"
-                    f"borderw={seg_style.stroke.width}:"
-                    f"bordercolor={seg_style.stroke.color}:"
-                    f"x={_format_position(seg_style.position, 'x', scale)}:"
-                    f"y={_format_position(seg_style.position, 'y', scale)}+{line_offset}:"
-                    f"enable='between(t,{start:.2f},{end:.2f})'"
-                )
-                line_offset += int(round(seg_style.fontsize + 8 * scale))  # simple line spacing
-        else:
-            text = _escape_text(section.on_screen_text)
-            start = max(section.start_sec, 0.0)
-            end = max(section.start_sec + section.duration_sec, start + 0.1)
-            # Also fit base style (intro/title-only sections)
-            base_style = style.model_copy(deep=True)
-            if scale != 1.0:
-                base_style.fontsize = int(round((base_style.fontsize or 0) * scale))
-                if base_style.stroke and base_style.stroke.width is not None:
-                    base_style.stroke.width = max(1, int(round(base_style.stroke.width * scale)))
-            font_path = _resolve_font_path(base_style.font)
-            base_style.fontsize = _fit_font_size(
-                text,
-                font_path,
-                base_style.fontsize or 0,
-                max_text_width,
-                min_fontsize=40,
-                stroke_width=(base_style.stroke.width or 0),
-            )
-            filters.append(
-                "drawtext="
-                f"fontfile='{_resolve_font_path(base_style.font)}':"
-                f"text='{text}':"
-                f"fontsize={base_style.fontsize}:"
-                f"fontcolor={base_style.fill}:"
-                f"borderw={base_style.stroke.width}:"
-                f"bordercolor={base_style.stroke.color}:"
-                f"x={_format_position(base_style.position, 'x', scale)}:"
-                f"y={_format_position(base_style.position, 'y', scale)}:"
-                f"enable='between(t,{start:.2f},{end:.2f})'"
-            )
-    return ",".join(filters)
-
 
 def _effect_filter(effect: str, start: float, end: float) -> str | None:
     """Map a friendly effect name to a ffmpeg filter with enable window."""
@@ -415,7 +526,7 @@ def _build_section_videos(
         # Scale/crop to target video dimensions upfront so drawtext uses final resolution.
         section_label = f"[vscaled{idx}]"
         filters.append(
-            f"{trimmed_label}scale={target_w}:{target_h}:force_original_aspect_ratio=decrease,"
+            f"{trimmed_label}scale={target_w}:{target_h}:force_original_aspect_ratio=decrease:flags=lanczos+accurate_rnd+full_chroma_int,"
             f"pad={target_w}:{target_h}:(ow-iw)/2:(oh-ih)/2,setsar=1{section_label}"
         )
 
@@ -452,49 +563,112 @@ def _build_section_videos(
                 offset = rank_offset if seg_idx == 0 else body_offset
                 off_x = offset.get("x", 0)
                 off_y = offset.get("y", 0)
-                for line in _split_lines(_escape_text(seg_text)):
-                    x_expr = _format_position(base_pos, "x")
-                    if align == "left":
-                        x_expr = f"{off_x + 60}"
-                    elif align == "right":
-                        x_expr = f"w-text_w-{off_x + 60}"
-                    y_expr = f"{_format_position(base_pos, 'y')}+{line_offset + off_y}"
-                    drawtext = (
-                        "drawtext="
-                        f"fontfile='{_resolve_font_path(seg_style.font)}':"
-                        f"text='{line}':"
-                        f"fontsize={seg_style.fontsize}:"
-                        f"fontcolor={seg_style.fill}:"
-                        f"borderw={seg_style.stroke.width}:"
-                        f"bordercolor={seg_style.stroke.color}:"
-                        f"x={x_expr}:"
-                        f"y={y_expr}:"
-                        f"enable='between(t,0.00,{duration:.2f})'"
-                    )
-                    out_label = f"[vtxt{idx}_{seg_idx}_{line_offset}]"
-                    filters.append(f"{current_label}{drawtext}{out_label}")
-                    current_label = out_label
-                    line_offset += seg_style.fontsize + line_gap
+
+                scale = _short_scale(script)
+                if scale != 1.0:
+                    seg_style.fontsize = int(round((seg_style.fontsize or 0) * scale))
+                    if seg_style.stroke and seg_style.stroke.width is not None:
+                        seg_style.stroke.width = max(1, int(round(seg_style.stroke.width * scale)))
+                font_path = _resolve_font_path(seg_style.font)
+                line_gap_px = int(round(8 * scale))
+                
+                # Ensure text fits within video width
+                target_w = script.video.width
+                max_text_width = int(target_w * 0.9)
+                
+                text_img, img_w, img_h = _render_text_image(
+                    _escape_text(seg_text),
+                    font_path,
+                    seg_style.fontsize,
+                    seg_style.fill,
+                    seg_style.stroke.color,
+                    seg_style.stroke.width or 0,
+                    line_gap_px,
+                    max_width=max_text_width,
+                )
+                if align == "left":
+                    xpos = off_x + 60
+                elif align == "right":
+                    xpos = target_w - img_w - (off_x + 60)
+                else:
+                    xpos = int((target_w - img_w) / 2) + off_x
+
+                base_y = 0
+                if isinstance(base_pos.y, int):
+                    base_y = int(round(base_pos.y * scale))
+                elif isinstance(base_pos.y, str) and base_pos.y.startswith("center"):
+                    delta = 0
+                    token = base_pos.y[len("center"):]
+                    if token:
+                        try:
+                            delta = int(token)
+                        except Exception:
+                            delta = 0
+                    base_y = int(target_h / 2 - img_h / 2 + delta)
+                else:
+                    try:
+                        base_y = int(float(base_pos.y))
+                    except Exception:
+                        base_y = 0
+                ypos = base_y + line_offset + off_y
+
+                img_idx = add_input(["-loop", "1", "-i", text_img])
+                out_label = f"[vtxt{idx}_{seg_idx}_{line_offset}]"
+                # Don't use enable= because each section is trimmed; overlay throughout section duration
+                filters.append(
+                    f"{current_label}[{img_idx}:v]overlay={xpos}:{ypos}:shortest=1{out_label}"
+                )
+                current_label = out_label
+                line_offset += img_h + line_gap_px
             section_label = current_label
         else:
-            x_expr = _format_position(base_pos, "x")
-            if align == "left":
-                x_expr = "60"
-            elif align == "right":
-                x_expr = "w-text_w-60"
-            drawtext = (
-                "drawtext="
-                f"fontfile='{_resolve_font_path(style.font)}':"
-                f"text='{_escape_text(section_tl.on_screen_text)}':"
-                f"fontsize={style.fontsize}:"
-                f"fontcolor={style.fill}:"
-                f"borderw={style.stroke.width}:"
-                f"bordercolor={style.stroke.color}:"
-                f"x={x_expr}:"
-                f"y={_format_position(base_pos, 'y')}:"
-                f"enable='between(t,0.00,{duration:.2f})'"
+            scale = _short_scale(script)
+            base_style = style.model_copy(deep=True)
+            if scale != 1.0:
+                base_style.fontsize = int(round((base_style.fontsize or 0) * scale))
+                if base_style.stroke and base_style.stroke.width is not None:
+                    base_style.stroke.width = max(1, int(round(base_style.stroke.width * scale)))
+            font_path = _resolve_font_path(base_style.font)
+            line_gap_px = int(round(8 * scale))
+            text_img, img_w, img_h = _render_text_image(
+                _escape_text(section_tl.on_screen_text),
+                font_path,
+                base_style.fontsize,
+                base_style.fill,
+                base_style.stroke.color,
+                base_style.stroke.width or 0,
+                line_gap_px,
             )
-            filters.append(f"{section_label}{drawtext}[vtxt{idx}]")
+            if align == "left":
+                xpos = 60
+            elif align == "right":
+                xpos = target_w - img_w - 60
+            else:
+                xpos = int((target_w - img_w) / 2)
+
+            base_y = 0
+            if isinstance(base_pos.y, int):
+                base_y = int(round(base_pos.y * scale))
+            elif isinstance(base_pos.y, str) and base_pos.y.startswith("center"):
+                delta = 0
+                token = base_pos.y[len("center"):]
+                if token:
+                    try:
+                        delta = int(token)
+                    except Exception:
+                        delta = 0
+                base_y = int(target_h / 2 - img_h / 2 + delta)
+            else:
+                try:
+                    base_y = int(float(base_pos.y))
+                except Exception:
+                    base_y = 0
+
+            img_idx = add_input(["-loop", "1", "-i", text_img])
+            # Don't use enable= because each section is trimmed; overlay throughout section duration
+            filters.append(
+                f"{section_label}[{img_idx}:v]overlay={xpos}:{base_y}:shortest=1[vtxt{idx}]"
+            )
             section_label = f"[vtxt{idx}]"
 
         # Effects per section (uses 0..duration window)
@@ -591,15 +765,6 @@ def build_ffmpeg_command(
     bg_path = script.video.bg
     total_duration = max(timeline.total_duration, 1.0)
 
-    has_section_bg = any(getattr(sec, "bg", None) for sec in script.sections)
-
-    # Background video or image (global) only when no section-specific bg
-    if not has_section_bg:
-        if Path(bg_path).suffix.lower() in IMAGE_EXTENSIONS:
-            add_input(["-loop", "1", "-t", str(total_duration), "-i", bg_path])
-        else:
-            add_input(["-stream_loop", "-1", "-i", bg_path])
-
     # Section narration WAV inputs
     voice_indices: List[int] = []
     for section in timeline.sections:
@@ -624,32 +789,8 @@ def build_ffmpeg_command(
     filter_parts: List[str] = []
     video_label = ""
 
-    if has_section_bg:
-        video_label, section_filters = _build_section_videos(script, timeline, add_input)
-        filter_parts.extend(section_filters)
-    else:
-        # Video – drawtext per section
-        drawtext = _build_drawtext_filters(script.text_style, timeline, script)
-        video_label = "[0:v]"
-        if drawtext:
-            filter_parts.append(f"{video_label}{drawtext}[vtext]")
-            video_label = "[vtext]"
-        else:
-            filter_parts.append(f"{video_label}copy[vtext]")
-            video_label = "[vtext]"
-
-        # Section visual effects (blur/grayscale/vignette/contrast etc.)
-        vfx_label, vfx_filters = _apply_section_effects(video_label, script, timeline)
-        filter_parts.extend(vfx_filters)
-        video_label = vfx_label
-
-        # Scale/crop to target resolution
-        w, h = script.video.width, script.video.height
-        filter_parts.append(
-            f"{video_label}scale={w}:{h}:force_original_aspect_ratio=decrease,"
-            f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2,setsar=1[vscaled]"
-        )
-        video_label = "[vscaled]"
+    video_label, section_filters = _build_section_videos(script, timeline, add_input)
+    filter_parts.extend(section_filters)
 
     # Watermark overlay (if available)
     if watermark_index is not None:

@@ -77,6 +77,8 @@ const TMP_DIR = path.join(PROJECT_ROOT, 'tmp');
 const UI_SCRIPT_PATH = path.join(TMP_DIR, 'ui_script.yaml');
 const AUDIO_CACHE_DIR = path.join(PROJECT_ROOT, 'work', 'audio');
 const OUTPUTS_DIR = path.join(PROJECT_ROOT, 'outputs', 'rendered');
+const CACHE_DIR = path.join(PROJECT_ROOT, 'outputs', 'cache');
+const DEBUG_FRAMES_DIR = path.join(PROJECT_ROOT, 'outputs', 'debug_frames');
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg', '.aiff', '.aif', '.wma']);
 
 let currentSettings = loadAISettings();
@@ -362,7 +364,7 @@ function registerHandlers() {
     return { version: 'dev' };
   });
   ipcMain.handle('scripts:generate-from-brief', async (event, payload) => {
-    const { brief, themeId, sections } = payload || {};
+    const { brief, themeId, sections, targetSeconds } = payload || {};
     if (!brief || !brief.trim()) {
       throw new Error('ブリーフが入力されていません。');
     }
@@ -371,6 +373,7 @@ function registerHandlers() {
       brief,
       themeId,
       sections: normalizedSections,
+      targetSeconds: Number(targetSeconds) || undefined,
     });
     return script;
   });
@@ -655,6 +658,55 @@ function registerHandlers() {
       console.error('Failed to clear audio cache', err);
       throw new Error('音声キャッシュの削除に失敗しました。');
     }
+  });
+
+  ipcMain.handle('cache:clear-all', async () => {
+    const removed = [];
+    const errors = [];
+
+    const wipeDir = (dirPath, label) => {
+      try {
+        fs.rmSync(dirPath, { recursive: true, force: true });
+        fs.mkdirSync(dirPath, { recursive: true });
+        removed.push(label);
+      } catch (err) {
+        console.error(`Failed to clear ${label}`, err);
+        errors.push(label);
+      }
+    };
+
+    wipeDir(AUDIO_CACHE_DIR, 'audio cache');
+    wipeDir(CACHE_DIR, 'outputs/cache');
+    wipeDir(DEBUG_FRAMES_DIR, 'outputs/debug_frames');
+
+    // Remove per-run cache folders under outputs/rendered matching *-YYYYMMDDHHMMSS
+    try {
+      if (fs.existsSync(OUTPUTS_DIR)) {
+        const entries = fs.readdirSync(OUTPUTS_DIR);
+        for (const name of entries) {
+          const full = path.join(OUTPUTS_DIR, name);
+          const st = fs.statSync(full);
+          if (!st.isDirectory()) continue;
+          if (/-[0-9]{14}$/.test(name)) {
+            try {
+              fs.rmSync(full, { recursive: true, force: true });
+              removed.push(`run folder ${name}`);
+            } catch (err) {
+              console.error('Failed to clear run folder', name, err);
+              errors.push(`run folder ${name}`);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to scan rendered outputs', err);
+      errors.push('rendered scan');
+    }
+
+    if (errors.length) {
+      throw new Error(`一部削除に失敗: ${errors.join(', ')}`);
+    }
+    return { ok: true, removed };
   });
 
   ipcMain.handle('video:get-latest', async () => {
@@ -1462,7 +1514,7 @@ function saveAISettings(payload) {
   return sanitized;
 }
 
-function generateScriptFromBrief({ brief, themeId, sections }) {
+function generateScriptFromBrief({ brief, themeId, sections, targetSeconds }) {
   const args = [
     path.join(PROJECT_ROOT, 'scripts', 'generate_script_from_brief.py'),
     '--brief',
@@ -1473,6 +1525,9 @@ function generateScriptFromBrief({ brief, themeId, sections }) {
     String(sections || 5),
     '--stdout',
   ];
+  if (targetSeconds && Number(targetSeconds) > 0) {
+    args.push('--target-seconds', String(Number(targetSeconds)));
+  }
   return new Promise((resolve, reject) => {
     const proc = spawn(PYTHON_BIN, args, { cwd: PROJECT_ROOT, env: buildEnv() });
     let stdout = '';

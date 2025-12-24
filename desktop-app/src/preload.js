@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('api', {
   openSettingsWindow: () => ipcRenderer.invoke('settings:open-window'),
   generateAudio: (payload) => ipcRenderer.invoke('audio:generate', payload),
   clearAudioCache: () => ipcRenderer.invoke('audio:clear'),
+  clearAllCache: () => ipcRenderer.invoke('cache:clear-all'),
   describeTimeline: (payload) => ipcRenderer.invoke('timeline:describe', payload),
   generateVideo: (payload) => ipcRenderer.invoke('video:generate', payload),
   uploadVideo: (payload) => ipcRenderer.invoke('video:upload', payload),

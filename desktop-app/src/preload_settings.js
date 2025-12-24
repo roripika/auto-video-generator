@@ -16,4 +16,5 @@ contextBridge.exposeInMainWorld('externalLinks', {
 
 contextBridge.exposeInMainWorld('youtubeAuth', {
   runAuthTest: () => ipcRenderer.invoke('youtube:auth-test'),
+  deleteCredentials: () => ipcRenderer.invoke('youtube:delete-creds'),
 });

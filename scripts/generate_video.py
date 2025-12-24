@@ -6,6 +6,8 @@ import json
 import subprocess
 import sys
 import os
+import shutil
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
@@ -428,6 +430,29 @@ def run_ffmpeg(command: list[str], dry_run: bool) -> None:
 def main() -> None:
     args = parse_args()
     script = load_script(args.script)
+    adjusted_yaml: Path | None = None
+    
+    # Pre-calculate short mode resolution before ticker adjustment
+    def should_apply_short_mode() -> bool:
+        mode = getattr(script.video, "short_mode", "off")
+        if mode not in ("auto", "short"):
+            return False
+        # For "auto" mode, we need duration - estimate from sections if available
+        if mode == "short":
+            return True
+        # Estimate duration from section audio if present
+        total_est = 0.0
+        for section in script.sections:
+            if hasattr(section, "audio") and section.audio:
+                # Rough estimate: 150 chars = ~10 sec
+                total_est += len(section.narration or "") / 15.0
+        return total_est > 0 and total_est <= 60.0
+    
+    if should_apply_short_mode():
+        script.video.width = 1080
+        script.video.height = 1920
+        print("[INFO] Short mode detected -> resolution set to 1080x1920 (before ticker adjustment)")
+    
     if args.adjust_tickers:
         from copy import deepcopy
         from scripts.adjust_tickers import adjust_script
@@ -436,6 +461,14 @@ def main() -> None:
         changed = adjust_script(script_copy)
         if changed:
             print("[INFO] テロップ幅を自動調整しました（レンダリングに反映されます）。")
+            # Save adjusted script back to YAML to persist changes
+            try:
+                import yaml
+                adjusted_yaml = args.script.parent / f"{args.script.stem}_adjusted.yaml"
+                adjusted_yaml.write_text(yaml.dump(script_copy.model_dump(), allow_unicode=True, sort_keys=False), encoding="utf-8")
+                print(f"[INFO] 調整後のスクリプトを保存しました: {adjusted_yaml}")
+            except Exception as e:
+                print(f"[WARN] 調整後のスクリプトの保存に失敗: {e}")
         script = script_copy
     config = load_config(args.config)
     if args.clear_audio_cache:
@@ -462,19 +495,15 @@ def main() -> None:
     timeline = build_timeline(script, audio_dir)
     print(f"[INFO] Total duration: {timeline.total_duration:.2f}s across {len(timeline.sections)} sections.")
 
-    def apply_short_mode_if_needed():
-        mode = getattr(script.video, "short_mode", "off")
-        if mode not in ("auto", "short"):
-            return
+    # Re-confirm short mode with actual timeline duration (for auto mode)
+    mode = getattr(script.video, "short_mode", "off")
+    if mode == "auto":
         dur = getattr(timeline, "total_duration", None)
-        should_short = mode == "short" or (dur is not None and dur <= 60.0)
-        if should_short:
-            # 縦長ショート向けに解像度を 1080x1920 に変更
+        should_short = dur is not None and dur <= 60.0
+        if should_short and script.video.width != 1080:
             script.video.width = 1080
             script.video.height = 1920
-            print("[INFO] Short mode enabled -> resolution set to 1080x1920")
-
-    apply_short_mode_if_needed()
+            print("[INFO] Short mode auto-enabled (duration ≤ 60s) -> resolution set to 1080x1920")
 
     config.outputs_dir.mkdir(parents=True, exist_ok=True)
     output_path = config.outputs_dir / script.output.filename
@@ -494,8 +523,71 @@ def main() -> None:
         print(f"[OK] SRT: {srt_path}")
 
     metadata_path = output_path.with_suffix(".json")
-    write_metadata(script, timeline, metadata_path, background_asset=bg_asset)
+    text_cache_dir = config.outputs_dir / "cache" / "text"
+    write_metadata(
+        script,
+        timeline,
+        metadata_path,
+        background_asset=bg_asset,
+        text_cache_dir=text_cache_dir if text_cache_dir.exists() else None,
+    )
     print(f"[OK] Metadata: {metadata_path}")
+
+    # Export per-render cache bundle under outputs/rendered/<project>-<timestamp>
+    try:
+        ts = datetime.now().strftime("%Y%m%d%H%M%S")
+        run_dir = config.outputs_dir / f"{script.project}-{ts}"
+        (run_dir / "text").mkdir(parents=True, exist_ok=True)
+        (run_dir / "frames").mkdir(parents=True, exist_ok=True)
+        (run_dir / "ffmpeg").mkdir(parents=True, exist_ok=True)
+
+        # Save ffmpeg command used
+        (run_dir / "ffmpeg" / "command.txt").write_text(" ".join(ffmpeg_cmd), encoding="utf-8")
+
+        # Copy metadata and SRT into the run directory
+        try:
+            shutil.copy2(metadata_path, run_dir / "metadata.json")
+        except Exception:
+            pass
+        srt_path = output_path.with_suffix(".srt")
+        if srt_path.exists():
+            try:
+                shutil.copy2(srt_path, run_dir / srt_path.name)
+            except Exception:
+                pass
+
+        # Copy adjusted YAML if it exists
+        if adjusted_yaml and adjusted_yaml.exists():
+            try:
+                shutil.copy2(adjusted_yaml, run_dir / adjusted_yaml.name)
+            except Exception:
+                pass
+
+        # Copy text PNGs referenced by ffmpeg into run_dir/text and save all inputs manifest
+        inputs_manifest: List[str] = []
+        for i, token in enumerate(ffmpeg_cmd):
+            if token == "-i" and i + 1 < len(ffmpeg_cmd):
+                src = Path(ffmpeg_cmd[i + 1])
+                inputs_manifest.append(str(src))
+                if src.name.startswith("text_") and src.suffix.lower() == ".png" and src.exists():
+                    try:
+                        shutil.copy2(src, run_dir / "text" / src.name)
+                    except Exception:
+                        pass
+        (run_dir / "inputs_manifest.txt").write_text("\n".join(inputs_manifest), encoding="utf-8")
+
+        # Copy debug frames if present
+        dbg_dir = Path("outputs/debug_frames")
+        if dbg_dir.exists():
+            for png in dbg_dir.glob("*.png"):
+                try:
+                    shutil.copy2(png, run_dir / "frames" / png.name)
+                except Exception:
+                    pass
+
+        print(f"[OK] Render cache exported to {run_dir}")
+    except Exception as err:
+        print(f"[WARN] Render cache export failed: {err}")
 
     print(f"[DONE] Video written to {output_path}")
 

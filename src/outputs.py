@@ -45,12 +45,19 @@ def write_metadata(
     output_path: Path,
     *,
     background_asset: DownloadedAsset | None = None,
+    section_assets: Dict[str, DownloadedAsset] | None = None,
+    text_cache_dir: Path | None = None,
+    bgm_asset: str | None = None,
 ) -> None:
     data: Dict[str, Any] = {
         "project": script.project,
         "title": script.title,
         "locale": script.locale,
         "total_duration_sec": timeline.total_duration,
+        "video_resolution": {
+            "width": script.video.width,
+            "height": script.video.height,
+        },
         "sections": [
             {
                 "id": section.id,
@@ -64,6 +71,8 @@ def write_metadata(
             for section in timeline.sections
         ],
     }
+    
+    # Background asset information
     if background_asset:
         bg_meta = None
         if background_asset.metadata_path and background_asset.metadata_path.exists():
@@ -76,5 +85,37 @@ def write_metadata(
             "metadata_path": str(background_asset.metadata_path),
             "metadata": bg_meta,
         }
+    
+    # Section-specific assets
+    if section_assets:
+        data["section_assets"] = {}
+        for section_id, asset in section_assets.items():
+            asset_meta = None
+            if asset.metadata_path and asset.metadata_path.exists():
+                try:
+                    asset_meta = json.loads(asset.metadata_path.read_text(encoding="utf-8"))
+                except Exception:
+                    asset_meta = None
+            data["section_assets"][section_id] = {
+                "path": str(asset.path),
+                "metadata_path": str(asset.metadata_path),
+                "metadata": asset_meta,
+            }
+    
+    # BGM information
+    if bgm_asset:
+        data["bgm"] = {
+            "path": bgm_asset,
+        }
+    
+    # Text caption cache directory
+    if text_cache_dir:
+        caption_pngs = sorted(text_cache_dir.glob("text_*.png")) if text_cache_dir.exists() else []
+        if caption_pngs:
+            data["text_assets"] = {
+                "cache_dir": str(text_cache_dir),
+                "files": [str(p.relative_to(text_cache_dir.parent)) for p in caption_pngs],
+            }
+    
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
